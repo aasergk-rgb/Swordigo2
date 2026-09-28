@@ -8,7 +8,6 @@ import { applyLevelChoice, attackPower, buy, defense, equip, expToNext, maxHp, t
 import { EV, saveGame, session } from '../session';
 import { byMode, fmt, inputMode, onInputMode } from '../inputMode';
 import { FONT } from '../ui';
-import { TouchPad } from './touchPad';
 
 type Done<T = void> = (v: T) => void;
 
@@ -65,7 +64,6 @@ export class HUDScene extends Phaser.Scene {
   private lineIndex = 0;
   private typed = 0;
 
-  private touchPad: TouchPad | null = null;
   private panel!: Phaser.GameObjects.Container;
   private panelObjs: Phaser.GameObjects.GameObject[] = [];
   private cursor = 0;
@@ -97,10 +95,7 @@ export class HUDScene extends Phaser.Scene {
 
     this.buildDialog(W, H);
     this.panel = this.add.container(0, 0).setDepth(60).setVisible(false);
-    this.touchPad = new TouchPad(this);
-    this.touchPad.setEnabled(inputMode.current === 'touch');
-    const off = onInputMode((m) => {
-      this.touchPad?.setEnabled(m === 'touch');
+    const off = onInputMode(() => {
       if (this.current && this.current.type !== 'dialog') this.redraw();
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
@@ -554,7 +549,6 @@ export class HUDScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.drawStatus();
-    this.touchPad?.update();
     const t = this.current;
     if (!t) return;
     const c = controlsRef.current;

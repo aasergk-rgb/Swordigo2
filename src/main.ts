@@ -7,6 +7,7 @@ import { HUDScene } from './scenes/HUDScene';
 import { TitleScene } from './scenes/TitleScene';
 import { watchInputMode } from './inputMode';
 import { session } from './session';
+import { TouchOverlay } from './touchOverlay';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -25,6 +26,7 @@ const game = new Phaser.Game({
 });
 
 watchInputMode();
+new TouchOverlay(game);
 
 // Handy for debugging and automated smoke tests.
 Object.assign(window, { __game: game, __session: session });
