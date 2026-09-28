@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { session } from '../session';
-import { FONT } from './HUDScene';
+import { FONT } from '../ui';
 
 export class EndScene extends Phaser.Scene {
   constructor() {

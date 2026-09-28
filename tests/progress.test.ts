@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addExp, applyDeath, applyLevelChoice, damageTaken, deserialize, expToNext, newGame, serialize, swordDamage } from '../src/progress';
+import { addExp, applyDeath, applyLevelChoice, attackPower, buy, damageTaken, deserialize, equip, expToNext, maxHp, newGame, serialize, swordDamage, useHeal } from '../src/progress';
 
 describe('leveling', () => {
   it('follows floor(20 * level^1.5)', () => {
@@ -68,13 +68,65 @@ describe('save data', () => {
   it('rejects broken data', () => {
     expect(deserialize(null)).toBeNull();
     expect(deserialize('not json')).toBeNull();
-    expect(deserialize('{"version":2}')).toBeNull();
+    expect(deserialize('{"version":3,"room":"x","level":1}')).toBeNull();
   });
 
-  it('fills in fields missing from older saves', () => {
-    const d = deserialize('{"version":1,"room":"forest3","level":4}');
-    expect(d?.abilities).toEqual({ doubleJump: false, bolt: false });
+  it('upgrades prototype (v1) saves', () => {
+    const d = deserialize('{"version":1,"room":"forest3","level":4,"abilities":{"doubleJump":true,"bolt":false}}');
+    expect(d?.version).toBe(2);
+    expect(d?.abilities.doubleJump).toBe(true);
+    expect(d?.abilities.rift).toBe(false);
     expect(d?.opened).toEqual([]);
+    expect(d?.equip.sword).toBe('apprentice');
     expect(d?.room).toBe('forest3');
+  });
+});
+
+describe('equipment and items', () => {
+  it('buys, equips and counts equipment', () => {
+    const s = newGame();
+    s.coins = 1000;
+    expect(buy(s, 'equip', 'machete')).toBe('ok');
+    expect(buy(s, 'equip', 'machete')).toBe('owned');
+    expect(s.coins).toBe(700);
+    expect(equip(s, 'machete')).toBe(true);
+    expect(attackPower(s)).toBe(5);
+  });
+
+  it('allows two charms at most and toggles them', () => {
+    const s = newGame();
+    s.owned.push('magnet', 'vigor', 'feather');
+    expect(equip(s, 'magnet')).toBe(true);
+    expect(equip(s, 'vigor')).toBe(true);
+    expect(maxHp(s)).toBe(14);
+    expect(equip(s, 'feather')).toBe(false);
+    expect(equip(s, 'magnet')).toBe(true); // unequip
+    expect(s.equip.charms).toEqual(['vigor']);
+  });
+
+  it('refuses items when broke or full', () => {
+    const s = newGame();
+    s.coins = 10;
+    expect(buy(s, 'item', 'potion')).toBe('poor');
+    s.coins = 1000;
+    s.items.potion = 5;
+    expect(buy(s, 'item', 'potion')).toBe('full');
+  });
+
+  it('heals with the smallest item that makes sense', () => {
+    const s = newGame();
+    s.items = { potion: 1, bigPotion: 1, ether: 0 };
+    s.hp = 7;
+    expect(useHeal(s)).toBe('potion');
+    s.hp = 1;
+    s.hpMax = 20;
+    expect(useHeal(s)).toBe('bigPotion');
+    expect(s.hp).toBe(20);
+  });
+
+  it('halves damage in easy mode', () => {
+    const s = newGame();
+    s.easy = true;
+    expect(damageTaken(5, 0, s)).toBe(3);
   });
 });
