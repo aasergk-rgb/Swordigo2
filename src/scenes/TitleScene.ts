@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { newGame } from '../progress';
 import { loadGame, session } from '../session';
+import { byMode, onInputMode } from '../inputMode';
 import { FONT } from '../ui';
 
 export class TitleScene extends Phaser.Scene {
@@ -61,10 +62,17 @@ export class TitleScene extends Phaser.Scene {
     const refresh = () => texts.forEach((t, i) => t.setText((i === cursor ? '▶ ' : '　') + items[i].label + (i === cursor ? ' ◀' : '　')).setColor(i === cursor ? '#fff3a0' : '#c8d0e8'));
     refresh();
 
-    this.add
-      .text(W / 2, H - 22, '← →：移動　Z：ジャンプ　X：剣（長押しで溜め）　C：魔法　A/S：魔法切替　↑：話す　Q/E：回復　Esc：メニュー', { fontFamily: FONT, fontSize: '14px', color: '#c8d0e8', stroke: '#000', strokeThickness: 3 })
-      .setOrigin(0.5)
-      .setDepth(6);
+    const help = this.add.text(W / 2, H - 14, '', { fontFamily: FONT, fontSize: '14px', color: '#c8d0e8', stroke: '#000', strokeThickness: 3, align: 'center', lineSpacing: 4 }).setOrigin(0.5, 1).setDepth(6);
+    const showHelp = () =>
+      help.setFontSize(byMode(14, 20)).setText(
+        byMode(
+          '↑↓ で選んで Z で決定\n← →：移動　Z：ジャンプ　X：剣（長押しで溜め）　C：魔法　A/S：魔法切替　↑：話す　Q/E：回復　Esc：メニュー',
+          '遊びたいものをタップ\n左の十字で移動、右のボタンでジャンプ・剣・魔法。話せる相手の前では「話す」ボタンが出ます',
+        ),
+      );
+    showHelp();
+    const off = onInputMode(showHelp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
 
     const kb = this.input.keyboard!;
     kb.on('keydown-UP', () => {

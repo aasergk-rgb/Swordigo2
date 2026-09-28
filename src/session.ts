@@ -21,6 +21,8 @@ export const session = {
   /** Name of the current area, shown on the map. */
   roomName: '',
   roomArea: '',
+  /** Verb for what the player can use right now ("話す", "開ける"...), or null. */
+  interactHint: null as string | null,
 };
 
 export function saveGame(): boolean {

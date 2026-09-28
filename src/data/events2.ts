@@ -37,7 +37,7 @@ export const CH2_EVENTS: Record<string, Ev> = {
       { text: '祭壇に、柄をかざすと……刃のない柄の先に、小さな光が灯った。' },
       { who: 'ガレンの声', text: '灯を放つ術だ。遠くの灯の玉も、これで点けられる。' },
     ]);
-    await g.giveAbility('bolt', '魔法「灯弾」', 'C で光の弾を撃つ（MP 3）。\nまっすぐ飛び、離れた灯の玉を点けられる。\n剣で敵に当てると MP が回復する。');
+    await g.giveAbility('bolt', '魔法「灯弾」', '{magic} で光の弾を撃つ（MP 3）。\nまっすぐ飛び、離れた灯の玉を点けられる。\n剣で敵に当てると MP が回復する。');
   },
 
   mirror: async (g) => {
@@ -76,7 +76,7 @@ export const CH2_EVENTS: Record<string, Ev> = {
       { text: '第3章　沈んだ都' },
     ]);
     g.setFlag('ch3');
-    g.toast('ドルムの崖の上から、くぼみの灯の玉を灯弾（C）で撃とう');
+    g.toast('ドルムの崖の上から、くぼみの灯の玉を灯弾（{magic}）で撃とう');
   },
   // ---------------------------------------------------------------- chapter 3
   boss_captain: async (g) => {
@@ -86,7 +86,7 @@ export const CH2_EVENTS: Record<string, Ev> = {
       { who: '沈んだ騎士長', text: '百年……待った……この力を……継ぐ者を……' },
       { text: '騎士長の鎧が崩れ、青白い光がリオの柄に吸い込まれた。' },
     ]);
-    await g.giveAbility('rift', '魔法「灯渡り」', '前へ瞬間移動する（MP 5）。移動中は無敵。\n光の格子をすり抜けられる。A / S で魔法を切り替え。');
+    await g.giveAbility('rift', '魔法「灯渡り」', '前へ瞬間移動する（MP 5）。移動中は無敵。\n光の格子をすり抜けられる。{switch} で魔法を切り替え。');
     await g.say([
       { who: 'カイ', text: '……ここにいたか。' },
       { who: 'リオ', text: 'カイ！ どうしてアクアリアに？' },

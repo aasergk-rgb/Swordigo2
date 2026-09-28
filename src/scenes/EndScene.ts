@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { session } from '../session';
+import { byMode } from '../inputMode';
 import { FONT } from '../ui';
 
 const CREDITS = [
@@ -81,7 +82,7 @@ export class EndScene extends Phaser.Scene {
 
     const back = () => this.scene.start('Title');
     this.time.delayedCall(3000, () => {
-      this.add.text(W - 16, H - 12, 'Z（タップ）でタイトルへ', { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 1).setDepth(9);
+      this.add.text(W - 16, H - 12, byMode('Z でタイトルへ', 'タップでタイトルへ'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 1).setDepth(9);
       this.input.keyboard!.once('keydown-Z', back);
       this.input.once('pointerdown', back);
     });

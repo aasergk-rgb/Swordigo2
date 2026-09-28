@@ -14,7 +14,7 @@ export const CH3_ROOMS: RoomDef[] = [
     name: '地底湖',
     links: { '1': { to: 'dorm', at: '4', door: 'dark' }, '2': { to: 'lake2', at: '1' } },
     water: 17,
-    signs: ['水の中では Z を押すたびに浮き上がる。'],
+    signs: ['水の中では {jump} を押すたびに浮き上がる。'],
     rows: grid(70, 20, {
       11: row(70, { 34: 'c' }),
       12: row(70, { 32: '-----' }),
@@ -137,7 +137,7 @@ export const CH3_ROOMS: RoomDef[] = [
     id: 'aqualia4',
     name: '沈んだ都・光の格子の回廊',
     links: { '1': { to: 'aqualia3', at: '2' }, '2': { to: 'aqualiaBoss', at: '1' } },
-    signs: ['光の格子は、灯渡り（魔法）ですり抜けられる。\nA / S で魔法を切り替えよう。'],
+    signs: ['光の格子は、灯渡り（魔法）ですり抜けられる。\n{switch} で魔法を切り替えよう。'],
     items: ['quest:tablet3', 'quest:musicBox', 'quest:tablet4'],
     rows: grid(
       92,

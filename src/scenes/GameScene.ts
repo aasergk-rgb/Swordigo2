@@ -116,6 +116,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.entered = this.time.now;
     session.boss = null;
     session.uiBlocking = false;
+    session.interactHint = null;
     session.roomName = this.room.name;
     session.roomArea = this.room.area;
     const d = session.data;
@@ -567,6 +568,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     if (!frozen && world.isPaused) world.resume();
     if (frozen) {
       this.prompt.setVisible(false);
+      session.interactHint = null;
       this.anims.pauseAll();
       return;
     }
@@ -967,14 +969,17 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   private handlePickups(): void {
     const d = session.data;
     const magnet = hasCharm(d, 'magnet');
+    // Compare against the player's body (not the sprite centre, which sits well above the
+    // feet), padded a little so items resting on the floor are collected by walking over them.
+    const pb = this.player.arcadeBody;
+    const reach = new Phaser.Geom.Rectangle(pb.x - 4, pb.y - 4, pb.width + 8, pb.height + 8);
     for (const obj of [...this.pickups.getChildren()]) {
       const it = obj as Phaser.Physics.Arcade.Image;
-      const dist = Phaser.Math.Distance.Between(it.x, it.y, this.player.x, this.player.y);
-      if (magnet && dist < 90 && it.getData('kind') === 'coin') {
-        const a = Phaser.Math.Angle.Between(it.x, it.y, this.player.x, this.player.y);
+      if (magnet && it.getData('kind') === 'coin' && Phaser.Math.Distance.Between(it.x, it.y, pb.center.x, pb.center.y) < 90) {
+        const a = Phaser.Math.Angle.Between(it.x, it.y, pb.center.x, pb.center.y);
         it.setVelocity(Math.cos(a) * 180, Math.sin(a) * 180);
       }
-      if (dist > 14) continue;
+      if (!Phaser.Geom.Intersects.RectangleToRectangle(reach, it.getBounds())) continue;
       const kind = it.getData('kind') as string;
       if (kind === 'coin') d.coins += coinGain(d, it.getData('value') as number);
       else if (kind === 'heart') d.hp = Math.min(maxHp(d), d.hp + 2);
@@ -1069,8 +1074,18 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     }
     if (!near || !p.onGround) {
       this.prompt.setVisible(false);
+      session.interactHint = null;
       return;
     }
+    session.interactHint = {
+      sign: '読む',
+      npc: '話す',
+      chest: '開ける',
+      fountain: 'セーブ',
+      beacon: session.data.beacons.includes(this.roomId) ? 'ワープ' : '灯す',
+      door: '入る',
+      lock: '開ける',
+    }[near.kind];
     const top = near.kind === 'lock' ? near.img.y - 22 : (near.img as Phaser.GameObjects.Sprite).getTopCenter().y!;
     this.prompt.setVisible(true).setPosition(near.img.x, top - 8 + Math.sin(this.time.now / 150) * 1.5);
     if (!this.controls.justDown('up')) return;
@@ -1589,6 +1604,6 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const a = session.data.abilities;
     for (const k of Object.keys(a) as (keyof typeof a)[]) a[k] = true;
     session.data.mp = session.data.mpMax;
-    this.toast('【デバッグ】すべての能力を解放（A/S で魔法切り替え）');
+    this.toast('【デバッグ】すべての能力を解放（{switch} で魔法切り替え）');
   }
 }

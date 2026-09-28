@@ -5,8 +5,10 @@ import { ROOMS } from '../data/rooms/index';
 import type { Line } from '../data/types';
 import { controlsRef } from '../input';
 import { applyLevelChoice, attackPower, buy, defense, equip, expToNext, maxHp, type StatChoice } from '../progress';
-import { EV, saveGame, session, type ButtonName } from '../session';
+import { EV, saveGame, session } from '../session';
+import { byMode, fmt, inputMode, onInputMode } from '../inputMode';
 import { FONT } from '../ui';
+import { TouchPad } from './touchPad';
 
 type Done<T = void> = (v: T) => void;
 
@@ -63,6 +65,7 @@ export class HUDScene extends Phaser.Scene {
   private lineIndex = 0;
   private typed = 0;
 
+  private touchPad: TouchPad | null = null;
   private panel!: Phaser.GameObjects.Container;
   private panelObjs: Phaser.GameObjects.GameObject[] = [];
   private cursor = 0;
@@ -94,7 +97,17 @@ export class HUDScene extends Phaser.Scene {
 
     this.buildDialog(W, H);
     this.panel = this.add.container(0, 0).setDepth(60).setVisible(false);
-    if (this.sys.game.device.input.touch) this.buildTouch(W, H);
+    this.touchPad = new TouchPad(this);
+    this.touchPad.setEnabled(inputMode.current === 'touch');
+    const off = onInputMode((m) => {
+      this.touchPad?.setEnabled(m === 'touch');
+      if (this.current && this.current.type !== 'dialog') this.redraw();
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
+    // In touch mode a tap anywhere moves the dialog on.
+    this.input.on('pointerdown', () => {
+      if (inputMode.current === 'touch' && this.current?.type === 'dialog') this.dialogAdvance();
+    });
 
     const on = <A extends unknown[]>(ev: string, fn: (...a: A) => void) => {
       this.game.events.on(ev, fn);
@@ -174,7 +187,7 @@ export class HUDScene extends Phaser.Scene {
   private dialogAdvance(): void {
     const t = this.current;
     if (!t || t.type !== 'dialog' || this.time.now - this.openedAt < 150) return;
-    const full = t.lines[this.lineIndex].text;
+    const full = fmt(t.lines[this.lineIndex].text);
     if (this.typed < full.length) {
       this.typed = full.length;
       this.dialogText.setText(full);
@@ -186,7 +199,7 @@ export class HUDScene extends Phaser.Scene {
 
   private updateDialog(dt: number): void {
     const t = this.current as Extract<UiTask, { type: 'dialog' }>;
-    const full = t.lines[this.lineIndex].text;
+    const full = fmt(t.lines[this.lineIndex].text);
     if (this.typed < full.length) {
       this.typed = Math.min(full.length, this.typed + dt * 45);
       this.dialogText.setText(full.slice(0, Math.floor(this.typed)));
@@ -226,7 +239,7 @@ export class HUDScene extends Phaser.Scene {
     this.panel.setVisible(true);
     this.shade();
     this.add2(this.add.text(W / 2, 110, `レベルアップ！  Lv ${session.data.level}\n伸ばす力を 1 つ選ぼう`, { fontFamily: FONT, fontSize: '32px', color: '#fff3a0', stroke: '#000', strokeThickness: 5, align: 'center' }).setOrigin(0.5));
-    this.add2(this.add.text(W / 2, H - 90, '← → で選んで Z で決定（タップでも選べます）', { fontFamily: FONT, fontSize: '18px', color: '#dddddd' }).setOrigin(0.5));
+    this.add2(this.add.text(W / 2, H - 90, byMode('← → で選んで Z で決定', 'やりたいものをタップして決定'), { fontFamily: FONT, fontSize: '18px', color: '#dddddd' }).setOrigin(0.5));
     CHOICES.forEach((c, i) => {
       const x = W / 2 + (i - 1) * 230;
       const on = i === this.cursor;
@@ -279,7 +292,7 @@ export class HUDScene extends Phaser.Scene {
     const glow = this.add2(this.add.image(W / 2, H / 2 - 40, 'light_warm').setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD));
     this.tweens.add({ targets: glow, alpha: 0.2, yoyo: true, repeat: -1, duration: 700 });
     this.add2(this.add.text(W / 2, H / 2 - 50, t.title, { fontFamily: FONT, fontSize: '32px', color: '#fff3a0', stroke: '#3a2a10', strokeThickness: 5 }).setOrigin(0.5));
-    this.add2(this.add.text(W / 2, H / 2 + 20, t.sub, { fontFamily: FONT, fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6, wordWrap: { width: 560, useAdvancedWrap: true } }).setOrigin(0.5, 0.5));
+    this.add2(this.add.text(W / 2, H / 2 + 20, fmt(t.sub), { fontFamily: FONT, fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6, wordWrap: { width: 560, useAdvancedWrap: true } }).setOrigin(0.5, 0.5));
     this.add2(this.add.text(W / 2 + 280, H / 2 + 70, '▼', { fontFamily: FONT, fontSize: '16px', color: '#ffffff' }).setOrigin(1, 0.5));
     this.add2(this.add.rectangle(0, 0, W, H, 0, 0).setOrigin(0).setInteractive().on('pointerdown', () => this.time.now - this.openedAt > 300 && this.next()));
   }
@@ -293,6 +306,9 @@ export class HUDScene extends Phaser.Scene {
     const x0 = 120;
     const w = W - 240;
     this.frame(x0, 50, w, H - 110);
+    // A big close button, for fingers and mice alike.
+    const close = this.add2(this.add.text(x0 + w - 16, 58, '✕', { fontFamily: FONT, fontSize: '30px', color: '#ffffff', backgroundColor: '#3a2a5a', padding: { x: 10, y: 2 } }).setOrigin(1, 0));
+    close.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.next(null));
     if (t.tabs) {
       t.tabs.forEach((name, i) => {
         const tx = this.add2(this.add.text(x0 + 30 + i * 150, 66, name, { fontFamily: FONT, fontSize: '22px', color: i === t.tab ? '#fff3a0' : '#7a82a0' }));
@@ -301,10 +317,10 @@ export class HUDScene extends Phaser.Scene {
           t.onTab?.(i);
         });
       });
-      this.add2(this.add.text(x0 + w - 24, 70, '← → 切り替え  Z 決定  X 閉じる', { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      this.add2(this.add.text(x0 + w - 70, 70, byMode('← → 切り替え  ↑↓ 選択  Z 決定  X 閉じる', 'タブをタップで切り替え・項目は2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
     } else {
       this.add2(this.add.text(x0 + 30, 66, t.title, { fontFamily: FONT, fontSize: '24px', color: '#fff3a0' }));
-      this.add2(this.add.text(x0 + w - 24, 70, '↑↓ 選択  Z 決定  X 閉じる', { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      this.add2(this.add.text(x0 + w - 70, 70, byMode('↑↓ 選択  Z 決定  X 閉じる', '2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
     }
     const rows = t.build();
     const perPage = 9;
@@ -317,8 +333,8 @@ export class HUDScene extends Phaser.Scene {
       const on = i === this.cursor;
       if (on) this.add2(this.add.rectangle(x0 + 16, y - 3, w - 32, 32, 0x2a2a5a).setOrigin(0));
       if (r.icon !== undefined) this.add2(this.add.image(x0 + 38, y + 13, 'icons', r.icon).setScale(1.5));
-      const txt = this.add2(this.add.text(x0 + 60, y, r.text, { fontFamily: FONT, fontSize: '20px', color: r.dim ? '#6a7090' : on ? '#ffffff' : '#c8d0e8' }));
-      if (r.sub) this.add2(this.add.text(x0 + w - 30, y + 2, r.sub, { fontFamily: FONT, fontSize: '18px', color: '#ffd98a' }).setOrigin(1, 0));
+      const txt = this.add2(this.add.text(x0 + 60, y, fmt(r.text), { fontFamily: FONT, fontSize: '20px', color: r.dim ? '#6a7090' : on ? '#ffffff' : '#c8d0e8' }));
+      if (r.sub) this.add2(this.add.text(x0 + w - 30, y + 2, fmt(r.sub), { fontFamily: FONT, fontSize: '18px', color: '#ffd98a' }).setOrigin(1, 0));
       txt.setInteractive().on('pointerdown', () => {
         if (this.cursor === i) this.listPick();
         else {
@@ -330,7 +346,7 @@ export class HUDScene extends Phaser.Scene {
     const sel = rows[this.cursor];
     const footer = t.footer?.() ?? '';
     const desc = (sel as { desc?: string } | undefined)?.desc ?? '';
-    this.add2(this.add.text(x0 + 30, H - 130, footer || desc, { fontFamily: FONT, fontSize: '17px', color: '#cfd8ff', lineSpacing: 5, wordWrap: { width: w - 60, useAdvancedWrap: true } }));
+    this.add2(this.add.text(x0 + 30, H - 130, fmt(footer || desc), { fontFamily: FONT, fontSize: '17px', color: '#cfd8ff', lineSpacing: 5, wordWrap: { width: w - 60, useAdvancedWrap: true } }));
   }
 
   private redraw(): void {
@@ -423,15 +439,15 @@ export class HUDScene extends Phaser.Scene {
             });
           case 1: {
             const rows: ListRow[] = [
-              { text: `灯の雫 ×${d.items.potion}`, icon: IC.potion, sub: 'Q で使う' },
-              { text: `大きな灯の雫 ×${d.items.bigPotion}`, icon: IC.bigPotion, sub: 'Q で使う' },
-              { text: `星の粉 ×${d.items.ether}`, icon: IC.ether, sub: 'E で使う' },
+              { text: `灯の雫 ×${d.items.potion}`, icon: IC.potion, sub: fmt('{heal} で使う') },
+              { text: `大きな灯の雫 ×${d.items.bigPotion}`, icon: IC.bigPotion, sub: fmt('{heal} で使う') },
+              { text: `星の粉 ×${d.items.ether}`, icon: IC.ether, sub: fmt('{ether} で使う') },
               { text: `剣の欠片 ${d.fragments}/4`, icon: IC.fragment },
               { text: `託された灯 ${d.lights.length}/12`, icon: IC.light },
             ];
             for (const s of SPELL_ORDER) if (d.abilities[s]) rows.push({ text: `${SPELLS[s].name}（MP ${SPELLS[s].cost}）${d.spell === s ? ' ← 選択中' : ''}`, icon: IC[s], desc: SPELLS[s].desc } as ListRow);
             if (d.abilities.doubleJump) rows.push({ text: '跳躍のブーツ（二段ジャンプ）', icon: IC.armor });
-            if (d.abilities.charge) rows.push({ text: '溜め斬り（X 長押し）', icon: IC.sword });
+            if (d.abilities.charge) rows.push({ text: fmt('溜め斬り（{attack} 長押し）'), icon: IC.sword });
             const questNames: Record<string, string> = { shadowIron: '影の鉄', musicBox: 'オルゴール', scale: '竜の鱗' };
             for (const [k, n] of Object.entries(questNames)) if (d.flags[`item_${k}`] && !d.flags[`gave_${k}`]) rows.push({ text: n, icon: IC.key });
             const tabs2 = ['tablet1', 'tablet2', 'tablet3', 'tablet4'].filter((k) => d.flags[`item_${k}`]).length;
@@ -449,7 +465,7 @@ export class HUDScene extends Phaser.Scene {
               { text: `防御 ${defense(d)}`, icon: IC.armor },
               { text: `灯貨 ${d.coins}`, icon: IC.coin },
               { text: `プレイ時間 ${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` },
-              { text: d.easy ? 'やさしいモード：オン（Z で切り替え）' : 'やさしいモード：オフ（Z で切り替え）' },
+              { text: `やさしいモード：${d.easy ? 'オン' : 'オフ'}（${byMode('Z', '2回タップ')}で切り替え）` },
             ];
           }
           default: {
@@ -470,7 +486,7 @@ export class HUDScene extends Phaser.Scene {
       footer: () => {
         if (task.tab === 0) {
           const id = gear()[this.cursor];
-          return id ? `${EQUIPMENT[id].desc}\nZ で装備（お守りは2つまで）` : '';
+          return id ? `${EQUIPMENT[id].desc}\n${byMode('Z', '2回タップ')}で装備（お守りは2つまで）` : '';
         }
         if (task.tab === 3) return `現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
         return '';
@@ -498,7 +514,7 @@ export class HUDScene extends Phaser.Scene {
   toast(text: string): void {
     const W = this.scale.width;
     const t = this.add
-      .text(W / 2, 30, text, { fontFamily: FONT, fontSize: '19px', color: '#ffffff', stroke: '#000', strokeThickness: 4, align: 'center' })
+      .text(W / 2, 30, fmt(text), { fontFamily: FONT, fontSize: '19px', color: '#ffffff', stroke: '#000', strokeThickness: 4, align: 'center' })
       .setOrigin(0.5, 0)
       .setDepth(70);
     this.toasts.push(t);
@@ -534,39 +550,11 @@ export class HUDScene extends Phaser.Scene {
     this.tweens.chain({ targets: a, tweens: [{ alpha: 1, duration: 400 }, { alpha: 1, duration: 1200 }, { alpha: 0, duration: 600 }] });
   }
 
-  // ================================================================ touch
-
-  private buildTouch(W: number, H: number): void {
-    this.input.addPointer(3);
-    const pad = (x: number, y: number, r: number, label: string, btn: ButtonName) => {
-      const c = this.add.circle(x, y, r, 0xffffff, 0.14).setStrokeStyle(2, 0xffffff, 0.35).setDepth(40).setInteractive();
-      this.add.text(x, y, label, { fontFamily: FONT, fontSize: `${Math.round(Math.min(r * 0.7, (r * 1.5) / label.length))}px`, color: '#ffffff' }).setOrigin(0.5).setAlpha(0.7).setDepth(41);
-      const set = (v: boolean) => {
-        session.touch[btn] = v;
-        c.setFillStyle(0xffffff, v ? 0.35 : 0.14);
-      };
-      c.on('pointerdown', () => set(true));
-      c.on('pointerup', () => set(false));
-      c.on('pointerout', () => set(false));
-    };
-    const bx = 120;
-    const by = H - 120;
-    pad(bx - 70, by, 42, '◀', 'left');
-    pad(bx + 70, by, 42, '▶', 'right');
-    pad(bx, by - 70, 36, '▲', 'up');
-    pad(bx, by + 70, 36, '▼', 'down');
-    pad(W - 90, H - 90, 52, 'ジャンプ', 'jump');
-    pad(W - 200, H - 120, 46, '剣', 'attack');
-    pad(W - 110, H - 215, 38, '魔法', 'magic');
-    pad(W - 210, H - 230, 26, '切替', 'switch');
-    pad(W - 40, 130, 24, '回復', 'heal');
-    pad(W - 40, 190, 24, 'MENU', 'menu');
-  }
-
   // ================================================================ frame
 
   update(_time: number, delta: number): void {
     this.drawStatus();
+    this.touchPad?.update();
     const t = this.current;
     if (!t) return;
     const c = controlsRef.current;

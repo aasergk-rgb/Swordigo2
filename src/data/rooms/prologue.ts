@@ -67,8 +67,8 @@ export const PROLOGUE_ROOMS: RoomDef[] = [
     bg: 'forest',
     links: { '1': { to: 'village', at: '2' }, '2': { to: 'forest2', at: '1' } },
     signs: [
-      '← → 移動（2回押しでダッシュ）　Z ジャンプ（長押しで高く）\nX 剣（連打で3段斬り）　↑+X 上斬り　↑ 話す・調べる',
-      '空中で ↓ + X で下突き。敵に当たると跳ね返る。\n壺や草は剣で壊せる。灯貨や回復が出ることもある。',
+      '{move} 移動（素早く2回押すとダッシュ）　{jump} ジャンプ（長押しで高く）\n{attack} 剣（続けて押すと3段斬り）　{up}+{attack} 上斬り　{up} 話す・調べる',
+      '空中で {down} + {attack} で下突き。敵に当たると跳ね返る。\n壺や草は剣で壊せる。灯貨や回復が出ることもある。',
     ],
     npcs: { A: 'sheepA' },
     rows: grid(
@@ -105,7 +105,7 @@ export const PROLOGUE_ROOMS: RoomDef[] = [
     tiles: 'forest',
     bg: 'forestDeep',
     links: { '1': { to: 'forest1', at: '2' }, '2': { to: 'forest3', at: '1' } },
-    signs: ['コウモリが投げる実は、剣で斬ると打ち返せる。', 'トゲの上でも、下突き（空中で ↓ + X）なら跳ねて渡れる。'],
+    signs: ['コウモリが投げる実は、剣で斬ると打ち返せる。', 'トゲの上でも、下突き（空中で {down} + {attack}）なら跳ねて渡れる。'],
     npcs: { B: 'sheepB' },
     items: ['quest:shadowIron'],
     rows: grid(74, 17, {
@@ -135,7 +135,7 @@ export const PROLOGUE_ROOMS: RoomDef[] = [
     bg: 'forestDeep',
     links: { '1': { to: 'forest2', at: '2' }, '2': { to: 'forestBoss', at: '1' } },
     signs: [
-      '灯の泉：↑ でセーブと全回復。倒れたら、最後に触れた泉からやり直す。\nQ で回復薬、Esc（Tab）でメニュー。',
+      '灯の泉：{up} でセーブと全回復。倒れたら、最後に触れた泉からやり直す。\n{heal} で回復薬、{menu} でメニュー。',
       '高い所に宝箱がある……今はまだ届かない。\n（二段ジャンプを手に入れたら戻ってこよう）',
     ],
     npcs: { C: 'sheepC' },

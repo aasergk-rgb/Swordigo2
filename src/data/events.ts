@@ -104,7 +104,7 @@ export const EVENTS: Record<string, (g: GameApi) => Promise<void>> = {
   boss_rockqueen: async (g) => {
     await g.wait(600);
     await g.say('女王の巣の奥に、古いブーツが落ちている。履いてみると、体が羽のように軽くなった。');
-    await g.giveAbility('doubleJump', '跳躍のブーツ', '空中でもう一度 Z を押すと、二段ジャンプができる。\n天井の穴から上へ行けそうだ。');
+    await g.giveAbility('doubleJump', '跳躍のブーツ', '空中でもう一度 {jump} を押すと、二段ジャンプができる。\n天井の穴から上へ行けそうだ。');
   },
 
   boss_golem: async (g) => {
@@ -117,7 +117,7 @@ export const EVENTS: Record<string, (g: GameApi) => Promise<void>> = {
       { who: 'ガレンの声', text: '欠片が戻り、少しだけ力が戻った……ひとつ、技を教えよう。' },
       { who: 'ガレンの声', text: '剣を振りかぶったまま、灯を溜めろ。放てば、硬い守りも砕ける。' },
     ]);
-    await g.giveAbility('charge', '溜め斬り', 'X を長押しして、光ったら離す。\n強力な一撃で、盾や硬い殻も破れる。');
+    await g.giveAbility('charge', '溜め斬り', '{attack} を長押しして、光ったら離す。\n強力な一撃で、盾や硬い殻も破れる。');
     await g.say([
       { who: 'ガレンの声', text: '次の欠片は……風の吹く高みに……' },
       { who: 'ガレンの声', text: '……リオ。影を……見るな……' },

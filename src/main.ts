@@ -5,6 +5,7 @@ import { EndScene } from './scenes/EndScene';
 import { GameScene } from './scenes/GameScene';
 import { HUDScene } from './scenes/HUDScene';
 import { TitleScene } from './scenes/TitleScene';
+import { watchInputMode } from './inputMode';
 import { session } from './session';
 
 const game = new Phaser.Game({
@@ -22,6 +23,8 @@ const game = new Phaser.Game({
   input: { activePointers: 4 },
   scene: [BootScene, TitleScene, GameScene, HUDScene, EndScene],
 });
+
+watchInputMode();
 
 // Handy for debugging and automated smoke tests.
 Object.assign(window, { __game: game, __session: session });
