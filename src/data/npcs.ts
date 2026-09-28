@@ -134,8 +134,28 @@ export const NPCS: Record<string, NpcDef> = {
     name: 'ミナ',
     look: 'mina',
     talk: async (g) => {
-      await minaMeeting(g, 1);
-      if (g.flag('boss_golem')) {
+      const place = { dorm: 1, plateau3: 2, aqualia1: 3, forge1: 4 }[g.roomId] ?? 0;
+      if (place) await minaMeeting(g, place);
+      if (g.flag('ch4')) {
+        await g.say([
+          { who: 'ミナ', text: '竜の炉……暑いし、空気がピリピリしてる。' },
+          { who: 'ミナ', text: 'ねえリオ。最近、あんたの影が変な動きしてない？ ……ううん、気のせいだよね。' },
+        ]);
+      } else if (g.flag('boss_levia')) {
+        await g.say('灯爆、うまく使えてる？ ひびの入った壁なら吹っ飛ばせるよ。', 'ミナ');
+      } else if (g.flag('ch3')) {
+        await g.say([
+          { who: 'ミナ', text: 'ここが沈んだ都アクアリア……百年前の英雄の都だよ。' },
+          { who: 'ミナ', text: '灯の玉を叩くと水の高さが変わる仕掛けがあるみたい。泳げば高い所にも届くかも。' },
+        ]);
+      } else if (g.flag('boss_tempest')) {
+        await g.say('三つ目の欠片は地底湖の先だって？ ドルムの下の段の暗い扉……門の奥の玉を灯弾で撃てば開くかもね。', 'ミナ');
+      } else if (g.flag('ch2')) {
+        await g.say([
+          { who: 'ミナ', text: 'この先が天の祠。昔の人が空に一番近い場所に建てたんだって。' },
+          { who: 'ミナ', text: '遠くの灯の玉は、剣じゃ届かない。何か光を飛ばす方法があればね……' },
+        ]);
+      } else if (g.flag('boss_golem')) {
         await g.say([
           { who: 'ミナ', text: '欠片、取り戻したんだ！ やるじゃん。' },
           { who: 'ミナ', text: '次は崖の上の「風の高原」。その先の「天の祠」に、二つ目があるはず。' },

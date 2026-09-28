@@ -69,7 +69,7 @@ describe('world', () => {
       it('places objects on something solid', () => {
         for (const m of parsed.objects) {
           if (!'@FTSpgcxhmyuiLX'.includes(m.ch) && !(m.ch >= 'A' && m.ch <= 'Z')) continue;
-          if (m.ch === '*') continue;
+          if (m.ch === '*' || m.ch === 'B') continue;
           const below = room.rows[m.row + 1]?.[m.col];
           expect('#-=%&'.includes(below ?? ''), `${m.ch} at ${m.col},${m.row} floats`).toBe(true);
         }

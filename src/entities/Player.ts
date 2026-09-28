@@ -17,8 +17,8 @@ interface Attack {
 
 const CHARGE_TIME = 0.8;
 const CHARGE_SPEC: SwingSpec = { mult: 3, startup: 0.06, active: 0.14, total: 0.4 };
-const RIFT_TIME = 0.13;
-const RIFT_SPEED = 500;
+const RIFT_TIME = 0.15;
+const RIFT_SPEED = 520;
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   facing = 1;
@@ -352,6 +352,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   cast(): void {
     this.castTimer = 0.22;
+  }
+
+  /** Keeps the rift going a moment longer (used when it would end inside a light grid). */
+  extendRift(): void {
+    this.riftTimer = Math.max(this.riftTimer, 0.03);
+    this.invuln = Math.max(this.invuln, 0.1);
   }
 
   startRift(): void {

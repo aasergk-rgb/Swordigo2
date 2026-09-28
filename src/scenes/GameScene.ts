@@ -447,14 +447,15 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const id = this.room.npcs?.[letter];
     const def = id ? NPCS[id] : undefined;
     if (!def || !checkCond(def.when, session.data.flags)) return;
-    const humanKey = `npc_${def.lying ? 'garenLying' : def.look}`;
+    const look = def.alt && checkCond(def.alt.when, session.data.flags) ? def.alt.look : def.look;
+    const humanKey = `npc_${def.lying ? 'garenLying' : look}`;
     let img: Phaser.GameObjects.Sprite;
     if (this.textures.exists(humanKey)) {
       img = this.add.sprite(x, floor + 1, humanKey, 0).setOrigin(0.5, 1);
       const idle = this.anims.get(`${humanKey}_idle`);
       if (idle) img.play({ key: idle.key, startFrame: Math.floor(x / 16) % idle.frames.length });
     } else {
-      img = this.add.sprite(x, floor, `prop_${def.look}`).setOrigin(0.5, 1);
+      img = this.add.sprite(x, floor, `prop_${look}`).setOrigin(0.5, 1);
     }
     img.setDepth(DEPTH.objects);
     // Face the middle of the room by default.
@@ -575,7 +576,12 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.enemies = this.enemies.filter((e) => e.active);
     this.updateEnvironment(dt);
     this.player.locked = this.scripting > 0;
+    const wasRifting = this.player.rifting;
     this.player.tick(dt, this.controls, time);
+    if (wasRifting && !this.player.rifting) {
+      const b = this.player.arcadeBody;
+      if (this.layer.getTilesWithinWorldXY(b.x, b.y, b.width, b.height).some((t) => t.index === TI.grid)) this.player.extendRift();
+    }
     for (const e of this.enemies) e.tick(dt);
 
     if (this.scripting === 0) {
@@ -702,7 +708,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     p.cast();
     switch (spell) {
       case 'bolt':
-        this.fire(p.x + f * 10, p.y + 4, f * 280, 0, d.mag + 2, 'p_bolt', 'player');
+        // Chest height: fits through one-tile gaps at the player's feet level + 1.
+        this.fire(p.x + f * 10, p.feetY - 12, f * 280, 0, d.mag + 2, 'p_bolt', 'player');
         break;
       case 'rift':
         this.burst(p.x, p.y, 0x9fe6ff, 10);
@@ -710,7 +717,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
         this.time.delayedCall(140, () => this.burst(this.player.x, this.player.y, 0x9fe6ff, 10));
         break;
       case 'bomb': {
-        const img = this.add.sprite(p.x + f * 10, p.feetY - 7, 'bomb').play('bomb_fuse').setDepth(DEPTH.objects);
+        const img = this.add.sprite(p.x + f * 12, p.feetY - 7, 'bomb').play('bomb_fuse').setDepth(DEPTH.objects);
         this.bombs.push({ img, t: 1.2 });
         break;
       }
@@ -748,7 +755,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const flash = this.add.image(x, y, 'light_warm').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fx).setScale(0.2);
     this.tweens.add({ targets: flash, scale: 0.9, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
     this.burst(x, y, 0xffc040, 20);
-    const R = 30;
+    const R = 34;
     // Break cracked walls.
     for (const t of this.layer.getTilesWithinWorldXY(x - R, y - R, R * 2, R * 2)) {
       if (t.index !== TI.bombWall) continue;
@@ -804,7 +811,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     }
 
     // The Luminablade's charged slash sends a wave of light.
-    if (a.kind === 'charge' && a.t < 0.08 && d.equip.sword === 'luminablade' && !(a as { waved?: boolean }).waved) {
+    if (a.kind === 'charge' && a.t < 0.08 && d.equip.sword === 'luminablade' && d.flags.bladeWave && !(a as { waved?: boolean }).waved) {
       (a as { waved?: boolean }).waved = true;
       this.fire(p.x + p.facing * 14, p.y - 2, p.facing * 320, 0, attackPower(d) * 2, 'p_bolt', 'player', { pierce: true }).setScale(2, 1.2);
     }
@@ -821,6 +828,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     pr.damage = pr.damage * SWORD.reflectMult + attackPower(session.data);
     const src = pr.opts.source;
     const speed = Math.max(220, Math.hypot(body.velocity.x, body.velocity.y) * 1.6);
+    // Lift it off the floor so a rock at rest doesn't shatter on the ground at once.
+    if (pr.resting) pr.y -= 8;
     if (src && src.active && !src.dead) {
       const a = Phaser.Math.Angle.Between(pr.x, pr.y, src.x, src.y - 8);
       body.setVelocity(Math.cos(a) * speed, Math.sin(a) * speed);
@@ -1074,14 +1083,14 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const d = session.data;
     switch (it.kind) {
       case 'sign':
-        void this.script(() => this.say(it.text));
+        void this.script((api) => api.say(it.text));
         break;
       case 'npc': {
         const def = NPCS[it.id];
         it.img.setFlipX(this.player.x < it.img.x);
         this.player.facing = it.img.x > this.player.x ? 1 : -1;
         this.player.setFlipX(this.player.facing < 0);
-        void this.script(() => def.talk(this));
+        void this.script((api) => def.talk(api));
         break;
       }
       case 'fountain':
@@ -1366,13 +1375,21 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     return session.data;
   }
 
-  private async script(fn: () => Promise<void>): Promise<void> {
-    // Scripts can outlive the room they started in (warps restart the scene);
-    // only the current room's counter is touched.
+  private async script(fn: (api: GameApi) => Promise<void>): Promise<void> {
+    // Scripts can outlive the room they started in (warps and deaths restart the scene).
+    // Each gets an API bound to its room: once that room is gone, every call freezes the
+    // script instead of acting on the new room.
     const gen = this.generation;
+    const api = new Proxy(this as GameApi, {
+      get: (target, prop, receiver) => {
+        const v = Reflect.get(target, prop, receiver);
+        if (typeof v !== 'function') return v;
+        return (...args: unknown[]) => (this.generation === gen ? (v as (...a: unknown[]) => unknown).apply(target, args) : new Promise(() => undefined));
+      },
+    });
     this.scripting++;
     try {
-      await fn();
+      await fn(api);
     } finally {
       if (gen === this.generation) this.scripting = Math.max(0, this.scripting - 1);
     }
@@ -1381,7 +1398,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   runEvent(id: string): void {
     const ev = EVENTS[id];
     if (!ev) return;
-    void this.script(() => ev(this));
+    void this.script((api) => ev(api));
   }
 
   say(lines: Line[] | string, who?: string): Promise<void> {
@@ -1506,6 +1523,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       setLook: (look) => {
         const key = `npc_${look}`;
         if (this.textures.exists(key)) img.setTexture(key, 0).play(`${key}_idle`);
+        else if (this.textures.exists(`prop_${look}`)) img.setTexture(`prop_${look}`);
       },
     };
   }
@@ -1533,6 +1551,22 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.bossStarted = true;
     (this.boss as Boss).wake?.();
     this.shake(300, 0.006);
+  }
+
+  summon(kind: string, col: number, row: number): void {
+    const e = this.spawnEnemy(kind, col * TILE + TILE / 2, (row + 1) * TILE - 12);
+    if (e) this.burst(e.x, e.y, 0x8a4ad0, 10);
+  }
+
+  async waitNoEnemies(): Promise<void> {
+    const gen = this.generation;
+    this.scripting = Math.max(0, this.scripting - 1);
+    while (gen === this.generation && this.enemies.some((e) => e.active && !e.dead)) await this.wait(200);
+    if (gen === this.generation) this.scripting++;
+  }
+
+  get roomAlive(): boolean {
+    return this.scene.isActive();
   }
 
   refreshRoom(): void {

@@ -99,9 +99,12 @@ export interface GameApi {
   face(dir: 1 | -1): void;
   warp(room: string, marker: string): Promise<void>;
   startBoss(): void;
-  spawnEnemy(kind: string, col: number, row: number): void;
+  summon(kind: string, col: number, row: number): void;
   refreshRoom(): void;
   ending(): void;
+  /** Hands control back to the player until every enemy in the room is gone. */
+  waitNoEnemies(): Promise<void>;
+  readonly roomAlive: boolean;
 }
 
 export interface NpcHandle {
@@ -121,5 +124,7 @@ export interface NpcDef {
   lying?: boolean;
   /** Only present when this flag condition holds ("flag" or "!flag"). */
   when?: string;
+  /** Alternative look while a flag condition holds. */
+  alt?: { when: string; look: string };
   talk: (g: GameApi) => Promise<void>;
 }

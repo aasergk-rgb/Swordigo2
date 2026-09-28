@@ -433,7 +433,7 @@ export class Tentacle extends Enemy {
     this.scene.time.delayedCall(800, () => {
       if (!this.active) return;
       this.up = true;
-      this.scene.tweens.add({ targets: this, y: this.baseY - 30, duration: 200 });
+      this.scene.tweens.add({ targets: this, y: this.baseY - 100, duration: 220 });
     });
   }
 
@@ -459,7 +459,9 @@ export class Levia extends Boss {
     this.hollow = false;
     this.arcadeBody.setAllowGravity(false).setSize(44, 30).setOffset(22, 8);
     this.surfaceY = world.waterY ?? y;
-    this.spots = [60, world.roomW / 2, world.roomW - 60];
+    this.phasing = true;
+    // Surfaces in the open water between the platforms.
+    this.spots = [world.roomW * 0.31, world.roomW * 0.69];
     this.setY(this.surfaceY + 70);
     this.setDepth(3);
     this.play('levia_idle');

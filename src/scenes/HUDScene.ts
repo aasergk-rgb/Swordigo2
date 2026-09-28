@@ -49,7 +49,7 @@ const AREA_NAMES: Record<string, string> = {
 export class HUDScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   private icons: Phaser.GameObjects.Image[] = [];
-  private texts!: Record<'coins' | 'lv' | 'keys' | 'spell' | 'items' | 'boss' | 'area', Phaser.GameObjects.Text>;
+  private texts!: Record<'coins' | 'lv' | 'keys' | 'spell' | 'items' | 'boss' | 'area' | 'hp', Phaser.GameObjects.Text>;
   private toasts: Phaser.GameObjects.Text[] = [];
 
   private queue: UiTask[] = [];
@@ -83,6 +83,7 @@ export class HUDScene extends Phaser.Scene {
     const style = { fontFamily: FONT, fontSize: '18px', color: '#ffffff', stroke: '#000000', strokeThickness: 4 };
     this.texts = {
       coins: this.add.text(W - 20, 16, '', style).setOrigin(1, 0),
+      hp: this.add.text(50, 17, '', style).setVisible(false),
       lv: this.add.text(20, 70, '', { ...style, fontSize: '16px' }),
       keys: this.add.text(W - 20, 44, '', { ...style, fontSize: '16px' }).setOrigin(1, 0),
       spell: this.add.text(W - 64, 76, '', { ...style, fontSize: '14px' }).setOrigin(1, 0),
@@ -633,15 +634,22 @@ export class HUDScene extends Phaser.Scene {
       return img;
     };
 
-    // Hearts: one heart = 2 HP.
+    // Hearts: one heart = 2 HP (numbers instead once there are too many to show).
     const mh = maxHp(d);
     const hearts = Math.ceil(mh / 2);
-    for (let i = 0; i < hearts; i++) {
-      const fill = Phaser.Math.Clamp(d.hp - i * 2, 0, 2);
-      const row = Math.floor(i / 12);
-      icon(34 + (i % 12) * 26, 28 + row * 26, fill === 2 ? IC.heartFull : fill === 1 ? IC.heartHalf : IC.heartEmpty, 1.6);
+    let rowsH = 26;
+    if (hearts > 24) {
+      icon(34, 28, d.hp > 0 ? IC.heartFull : IC.heartEmpty, 1.6);
+      this.texts.hp.setVisible(true).setPosition(50, 17).setText(`${Math.max(0, d.hp)} / ${mh}`);
+    } else {
+      this.texts.hp.setVisible(false);
+      for (let i = 0; i < hearts; i++) {
+        const fill = Phaser.Math.Clamp(d.hp - i * 2, 0, 2);
+        const row = Math.floor(i / 12);
+        icon(34 + (i % 12) * 26, 28 + row * 26, fill === 2 ? IC.heartFull : fill === 1 ? IC.heartHalf : IC.heartEmpty, 1.6);
+      }
+      rowsH = Math.ceil(hearts / 12) * 26;
     }
-    const rowsH = Math.ceil(hearts / 12) * 26;
     // MP bar.
     const mpY = 18 + rowsH + 8;
     icon(30, mpY + 6, IC.mp, 1.2);
