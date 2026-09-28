@@ -88,7 +88,10 @@ export class GameScene extends Phaser.Scene implements World {
     this.drawBackground(w, h);
     this.buildTiles();
 
-    this.enemyGroup = this.physics.add.group();
+    // Adding a sprite to a physics group resets its body to the group defaults, so
+    // world-bound collision is set here. Room edges act as walls; only the bottom is
+    // open so enemies can still fall into pits.
+    this.enemyGroup = this.physics.add.group({ collideWorldBounds: true });
     this.projectiles = this.physics.add.group({ allowGravity: false });
     this.pickups = this.physics.add.group();
 

@@ -76,6 +76,10 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   tick(dt: number): void {
     if (this.dead || !this.active || !this.body) return;
+    if (this.y > this.scene.physics.world.bounds.bottom) {
+      this.fellOut();
+      return;
+    }
     if (this.stun > 0) {
       this.stun -= dt;
       const b = this.arcadeBody;
@@ -86,6 +90,12 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   protected abstract think(dt: number): void;
+
+  /** Called when the enemy drops below the room. Regular enemies just vanish. */
+  protected fellOut(): void {
+    this.dead = true;
+    this.destroy();
+  }
 
   protected dirToPlayer(): number {
     return this.world.player.x < this.x ? -1 : 1;
@@ -215,6 +225,14 @@ export class BossWolf extends Enemy {
     return !this.dead && this.state !== 'dormant';
   }
 
+  /** The boss must never leave the arena: put it back in the middle. */
+  protected fellOut(): void {
+    this.setPosition(this.homeX, 60);
+    this.arcadeBody.setVelocity(0, 0);
+    this.state = 'idle';
+    this.timer = 1.0;
+  }
+
   wake(): void {
     if (this.state !== 'dormant') return;
     this.state = 'idle';
@@ -243,11 +261,13 @@ export class BossWolf extends Enemy {
         if (this.timer <= 0) {
           this.clearTint();
           this.state = 'charge';
+          this.timer = 2.5; // safety: never charge forever
+          this.setFlipX(this.chargeDir < 0);
         }
         return;
       case 'charge':
         b.setVelocityX(this.chargeDir * 240 * speed);
-        if ((this.chargeDir < 0 && b.blocked.left) || (this.chargeDir > 0 && b.blocked.right)) {
+        if ((this.chargeDir < 0 && b.blocked.left) || (this.chargeDir > 0 && b.blocked.right) || this.timer <= 0) {
           this.state = 'stunned';
           this.timer = this.enraged ? 0.6 : 0.9;
           b.setVelocity(-this.chargeDir * 60, -120);

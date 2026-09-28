@@ -36,6 +36,29 @@ describe('rooms', () => {
         expect(room.signs?.length ?? 0).toBe(count(room.rows, 'S'));
       });
 
+      it('keeps heart-vessel chests out of single-jump reach but within double-jump reach', () => {
+        // Single jump rises 3.5 tiles, and landing snaps up to 1 more tile (arcade tile bias),
+        // so a ledge needs to be at least 5 tiles above every nearby standing spot.
+        // Double jump rises 6 tiles.
+        const rows = room.rows;
+        const standable = (c: number, r: number) => '#-'.includes(rows[r][c]) && (r === 0 || !'#-'.includes(rows[r - 1][c]));
+        rows.forEach((line, r) =>
+          line.split('').forEach((ch, c) => {
+            if (ch !== 'h') return;
+            const ledge = r + 1;
+            let lowest = Infinity;
+            for (let rr = 0; rr < rows.length; rr++)
+              for (let cc = Math.max(0, c - 8); cc <= Math.min(room.width - 1, c + 8); cc++) {
+                if (!standable(cc, rr) || rr === ledge) continue;
+                const rise = rr - ledge;
+                expect(rise <= 0 || rise >= 5, `step at ${cc},${rr} lets a single jump reach the chest at ${c},${r}`).toBe(true);
+                if (rise > 0) lowest = Math.min(lowest, rise);
+              }
+            expect(lowest, `chest at ${c},${r} must be double-jump reachable`).toBeLessThanOrEqual(6);
+          }),
+        );
+      });
+
       it('places objects on solid ground', () => {
         room.rows.forEach((line, r) =>
           line.split('').forEach((ch, c) => {

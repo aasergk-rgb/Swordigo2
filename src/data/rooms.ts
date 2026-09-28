@@ -118,9 +118,11 @@ export const ROOMS: Record<string, RoomDef> = {
       '高い所に宝箱がある……今はまだ届かない。\n（二段ジャンプを手に入れたら戻ってこよう）',
     ],
     rows: grid(40, {
-      6: '........................h',
-      7: '.......................----',
-      11: '.................---',
+      // The ledge is 5 tiles (80px) above the ground: a single jump rises ~52px and
+      // snaps onto ledges up to ~12px higher, a double jump rises ~92px.
+      // Nothing else in the room may be used as a step.
+      8: '........................h',
+      9: '.......................----',
       13: 'L....S.......F...........S..........R',
     }),
   },
