@@ -1,7 +1,7 @@
 // On-screen touch controls, drawn as an HTML layer over the whole phone screen (not just
 // the game canvas), so they sit at the very edges — in the black bars beside the game on
 // wide phones. Every finger that started on a control is tracked, so a thumb can slide
-// across the D-pad or onto another button without lifting.
+// between ◀ and ▶ or onto another button without lifting.
 import type Phaser from 'phaser';
 import { IC, ICON } from './art/icons';
 import { SPELL_ORDER } from './data/items';
@@ -11,7 +11,7 @@ import { FONT } from './ui';
 
 interface Ctl {
   el: HTMLDivElement;
-  btn: ButtonName | 'dpad' | 'context';
+  btn: ButtonName | 'move' | 'context';
   visible: () => boolean;
   icon?: HTMLDivElement;
   count?: HTMLSpanElement;
@@ -30,9 +30,10 @@ const CSS = `
 #touch .ctl.hidden { display: none; }
 #touch .icon { width: 44%; height: 44%; background-size: cover; image-rendering: pixelated; }
 #touch .count { position: absolute; right: 8%; bottom: 6%; font-size: 3.2vh; }
-#touch .dpad { border-radius: 50%; }
-#touch .arrow { position: absolute; font-size: 6.5vh; opacity: 0.6; line-height: 1; transform: translate(-50%, -50%); }
-#touch .arrow.on { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+#touch .move { flex-direction: row; border-radius: 15vh; overflow: hidden; }
+#touch .half { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11vh; }
+#touch .half + .half { border-left: 3px solid rgba(255,255,255,0.3); }
+#touch .half.on { background: rgba(255,255,255,0.35); }
 #touch .context { border-radius: 999px; background: rgba(255,243,160,0.93); border-color: rgba(58,42,16,0.8);
   color: #1a1030; text-shadow: none; font-size: 5.2vh; font-weight: bold; }
 #touch .context.held { background: #fff; }
@@ -41,7 +42,7 @@ const CSS = `
 export class TouchOverlay {
   private root: HTMLDivElement;
   private ctls: Ctl[] = [];
-  private dpad!: { el: HTMLDivElement; arrows: Record<'left' | 'right' | 'up' | 'down', HTMLSpanElement> };
+  private move!: { el: HTMLDivElement; left: HTMLDivElement; right: HTMLDivElement };
   /** Fingers that started on a control: identifier → position. */
   private fingers = new Map<number, { x: number; y: number }>();
   private iconUrls: Record<number, string> = {};
@@ -98,18 +99,18 @@ export class TouchOverlay {
       this.root.appendChild(el);
       return el;
     };
-    // D-pad: bottom-left corner of the phone screen.
-    const dpadEl = mk('dpad', { left: '2vw', bottom: '5vh', width: '46vh', height: '46vh' });
-    const arrow = (s: string, x: string, y: string) => {
-      const a = document.createElement('span');
-      a.className = 'arrow';
-      a.textContent = s;
-      Object.assign(a.style, { left: x, top: y });
-      dpadEl.appendChild(a);
-      return a;
+    // Movement: one wide ◀ ▶ bar in the bottom-left corner. Which half is held depends
+    // only on which side of its middle the thumb is, so sliding across switches direction.
+    const moveEl = mk('move', { left: '2vw', bottom: '5vh', width: '64vh', height: '30vh' });
+    const half = (s: string) => {
+      const h = document.createElement('div');
+      h.className = 'half';
+      h.textContent = s;
+      moveEl.appendChild(h);
+      return h;
     };
-    this.dpad = { el: dpadEl, arrows: { left: arrow('◀', '20%', '50%'), right: arrow('▶', '80%', '50%'), up: arrow('▲', '50%', '20%'), down: arrow('▼', '50%', '80%') } };
-    this.ctls.push({ el: dpadEl, btn: 'dpad', visible: () => true });
+    this.move = { el: moveEl, left: half('◀'), right: half('▶') };
+    this.ctls.push({ el: moveEl, btn: 'move', visible: () => true });
 
     const d = () => session.data;
     const spells = () => SPELL_ORDER.filter((s) => d().abilities[s]).length;
@@ -134,6 +135,9 @@ export class TouchOverlay {
       return c;
     };
     // Action buttons: bottom-right corner, big enough for thumbs.
+    // Up (upward slash) and down (downward thrust in the air), small, above the move bar.
+    button('up', 15, { left: 'calc(2vw + 13vh)', bottom: '38vh' }, '▲', () => true);
+    button('down', 15, { left: 'calc(2vw + 36vh)', bottom: '38vh' }, '▼', () => true);
     button('jump', 30, { right: '2vw', bottom: '5vh' }, 'ジャンプ', () => true);
     button('attack', 26, { right: 'calc(2vw + 30vh)', bottom: '12vh' }, '剣', () => true, IC.sword);
     button('magic', 22, { right: 'calc(2vw + 20vh)', bottom: '36vh' }, '魔法', () => spells() > 0, IC.bolt);
@@ -164,23 +168,16 @@ export class TouchOverlay {
   private recompute(): void {
     const t: Partial<Record<ButtonName, boolean>> = {};
     if (!session.uiBlocking) {
-      const pad = this.dpad.el.getBoundingClientRect();
+      const bar = this.move.el.getBoundingClientRect();
       for (const { x, y } of this.fingers.values()) {
-        const cx = pad.left + pad.width / 2;
-        const cy = pad.top + pad.height / 2;
-        const r = pad.width / 2;
-        const dx = x - cx;
-        const dy = y - cy;
-        if (Math.hypot(dx, dy) < r * 1.3) {
-          const dead = r * 0.25;
-          if (dx < -dead) t.left = true;
-          if (dx > dead) t.right = true;
-          if (dy < -dead * 1.4) t.up = true;
-          if (dy > dead * 1.4) t.down = true;
+        // Generous margins around the move bar, except upwards where ▲ ▼ sit.
+        if (x >= bar.left - 40 && x <= bar.right + 20 && y >= bar.top - 6 && y <= bar.bottom + 40) {
+          if (x < bar.left + bar.width / 2) t.left = true;
+          else t.right = true;
           continue;
         }
         for (const c of this.ctls) {
-          if (c.btn === 'dpad' || c.el.classList.contains('hidden')) continue;
+          if (c.btn === 'move' || c.el.classList.contains('hidden')) continue;
           const b = c.el.getBoundingClientRect();
           if (x >= b.left - 6 && x <= b.right + 6 && y >= b.top - 6 && y <= b.bottom + 6) {
             if (c.btn === 'context') t.up = true;
@@ -198,7 +195,8 @@ export class TouchOverlay {
     this.root.classList.toggle('dim', session.uiBlocking);
     if (session.uiBlocking && Object.keys(session.touch).length) session.touch = {};
     const held = session.touch;
-    for (const [k, a] of Object.entries(this.dpad.arrows)) a.classList.toggle('on', !!held[k as ButtonName]);
+    this.move.left.classList.toggle('on', !!held.left);
+    this.move.right.classList.toggle('on', !!held.right);
     const d = session.data;
     for (const c of this.ctls) {
       c.el.classList.toggle('hidden', !c.visible());
@@ -207,7 +205,7 @@ export class TouchOverlay {
         c.el.classList.toggle('held', !!held.up);
         continue;
       }
-      if (c.btn !== 'dpad') c.el.classList.toggle('held', !!held[c.btn]);
+      if (c.btn !== 'move') c.el.classList.toggle('held', !!held[c.btn]);
       if (c.icon) {
         const n = c.btn === 'magic' ? IC[d.spell] : Number(c.icon.dataset.icon);
         const url = this.iconUrls[n];
