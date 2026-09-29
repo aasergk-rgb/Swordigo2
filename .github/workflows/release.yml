@@ -1,0 +1,74 @@
+# Builds the Android APK and the iPad (Swift Playgrounds) app on every push and posts them
+# as a GitHub Release. The release text is the newest section of CHANGELOG.md.
+name: Release
+
+on:
+  push:
+    branches: [main, claude/swordigo-game-development-4zc1a4]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Build the web game and the iPad app
+        run: |
+          npm run ios
+          (cd ios && zip -qr ../Luminablade-iPad.swiftpm.zip Luminablade.swiftpm)
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build the Android APK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          npx cap sync android
+          cd android
+          ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+          cp app/build/outputs/apk/debug/app-debug.apk ../Luminablade.apk
+
+      - name: Release notes
+        run: |
+          awk '/^## /{n++} n==1' CHANGELOG.md > section.md
+          echo "TITLE=$(head -1 section.md | sed 's/^## //')" >> "$GITHUB_ENV"
+          {
+            tail -n +2 section.md
+            echo
+            echo '### ダウンロード'
+            echo '- **Android**：`Luminablade.apk` をスマホで開いてインストール（前のバージョンに上書きでき、セーブも残ります）'
+            echo '- **iPad**：`Luminablade-iPad.swiftpm.zip` を解凍して、`Luminablade.swiftpm` を Swift Playgrounds で開く'
+          } > notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }} ${{ env.TITLE }}
+          body_path: notes.md
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: |
+            Luminablade.apk
+            Luminablade-iPad.swiftpm.zip

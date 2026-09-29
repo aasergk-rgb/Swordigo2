@@ -39,6 +39,10 @@ npm run typecheck  # 型チェック
 npm run build      # dist/ に書き出し
 ```
 
+### リリース
+
+`main` か開発ブランチに push するたびに、GitHub Actions が Android 版と iPad 版を作って Releases に公開します（`.github/workflows/release.yml`）。説明文は `CHANGELOG.md` のいちばん上の項目です。
+
 ### Android版（APK）
 
 Capacitor で Web 版をそのままアプリにしています（`android/`）。Java 21 と Android SDK（`ANDROID_HOME`）が必要です。
