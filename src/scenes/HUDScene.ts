@@ -298,21 +298,26 @@ export class HUDScene extends Phaser.Scene {
     const H = this.scale.height;
     this.panel.setVisible(true);
     this.shade(0.55);
-    const x0 = 120;
-    const w = W - 240;
+    // Narrower panel margins on narrow screens (4:3 tablets).
+    const x0 = Math.max(24, Math.min(120, (W - 720) / 2));
+    const w = W - x0 * 2;
     this.frame(x0, 50, w, H - 110);
     // A big close button, for fingers and mice alike.
     const close = this.add2(this.add.text(x0 + w - 16, 58, '✕', { fontFamily: FONT, fontSize: '30px', color: '#ffffff', backgroundColor: '#3a2a5a', padding: { x: 10, y: 2 } }).setOrigin(1, 0));
     close.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.next(null));
     if (t.tabs) {
+      let tabsEnd = 0;
       t.tabs.forEach((name, i) => {
         const tx = this.add2(this.add.text(x0 + 30 + i * 150, 66, name, { fontFamily: FONT, fontSize: '22px', color: i === t.tab ? '#fff3a0' : '#7a82a0' }));
+        tabsEnd = tx.x + tx.width;
         if (i === t.tab) this.add2(this.add.rectangle(tx.x, 96, tx.width, 3, 0xfff3a0).setOrigin(0));
         tx.setInteractive().on('pointerdown', () => {
           t.onTab?.(i);
         });
       });
-      this.add2(this.add.text(x0 + w - 70, 70, byMode('← → 切り替え  ↑↓ 選択  Z 決定  X 閉じる', 'タブをタップで切り替え・項目は2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      const hint = this.add2(this.add.text(x0 + w - 70, 70, byMode('← → 切り替え  ↑↓ 選択  Z 決定  X 閉じる', 'タブをタップで切り替え・項目は2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      // No room beside the tabs: the hint goes just above the panel.
+      if (hint.x - hint.width < tabsEnd + 16) hint.setPosition(x0 + w, 28);
     } else {
       this.add2(this.add.text(x0 + 30, 66, t.title, { fontFamily: FONT, fontSize: '24px', color: '#fff3a0' }));
       this.add2(this.add.text(x0 + w - 70, 70, byMode('↑↓ 選択  Z 決定  X 閉じる', '2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));

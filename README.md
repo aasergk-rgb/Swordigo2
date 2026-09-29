@@ -45,6 +45,18 @@ npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
 - 画面の縦横比に合わせて見える範囲を横に広げる（480〜640px）ので、黒い余白が出ません。
 - 署名鍵 `android/app/debug.keystore` を固定しているので、新しい APK をそのまま上書きインストールでき、セーブも残ります。
 
+### iPad版（Swift Playgrounds）
+
+`ios/Luminablade.swiftpm` は Swift Playgrounds で開けるアプリです。中身は Web 版を全画面の WebView で表示するもの。
+
+```bash
+npm run ios   # dist/ を作って ios/Luminablade.swiftpm/Web/ にコピー
+```
+
+- `Luminablade.swiftpm` フォルダごと iPad に送り（iCloud Drive など）、Swift Playgrounds で開いて ▶ で遊べます。
+- 画面の形に合わせて見える範囲を変える（4:3 の iPad では 360px）ので、黒い余白が出ません。
+- セーブは iPad 側（UserDefaults）にも保存します。
+
 開発サーバーで `/art.html` を開くと、コードで描いたドット絵を一覧できます。
 
 | 場所 | 中身 |

@@ -27,17 +27,34 @@ export const session = {
   hudInsetRight: 0,
 };
 
+/** The iPad app keeps the save natively: it hands it in at start-up and takes each new one. */
+interface NativeSave {
+  __nativeSave?: string | null;
+  webkit?: { messageHandlers?: { save?: { postMessage(s: string): void } } };
+}
+const native = (typeof window === 'undefined' ? {} : window) as NativeSave;
+
 export function saveGame(): boolean {
-  try {
-    localStorage.setItem(SAVE_KEY, serialize(session.data));
-    return true;
-  } catch {
-    return false;
+  const text = serialize(session.data);
+  let ok = false;
+  const bridge = native.webkit?.messageHandlers?.save;
+  if (bridge) {
+    bridge.postMessage(text);
+    native.__nativeSave = text;
+    ok = true;
   }
+  try {
+    localStorage.setItem(SAVE_KEY, text);
+    ok = true;
+  } catch {
+    // Storage can be unavailable (private mode); the native copy may still have it.
+  }
+  return ok;
 }
 
 export function loadGame(): SaveData | null {
   try {
+    if (native.__nativeSave) return deserialize(native.__nativeSave);
     return deserialize(localStorage.getItem(SAVE_KEY));
   } catch {
     return null;

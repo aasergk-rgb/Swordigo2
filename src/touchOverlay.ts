@@ -19,7 +19,7 @@ interface Ctl {
 }
 
 const CSS = `
-#touch { --el: max(2vw, env(safe-area-inset-left)); --er: max(2vw, env(safe-area-inset-right)); position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: ${FONT}; user-select: none; -webkit-user-select: none; }
+#touch { --u: min(1vh, 0.5625vw); --el: max(2vw, env(safe-area-inset-left)); --er: max(2vw, env(safe-area-inset-right)); position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: ${FONT}; user-select: none; -webkit-user-select: none; }
 #touch.off, #touch.away { display: none; }
 #touch.dim .ctl { opacity: 0.2; pointer-events: none; }
 #touch .ctl { position: absolute; pointer-events: auto; border-radius: 50%; box-sizing: border-box;
@@ -29,13 +29,13 @@ const CSS = `
 #touch .ctl.held { background: rgba(255,255,255,0.35); }
 #touch .ctl.hidden { display: none; }
 #touch .icon { width: 44%; height: 44%; background-size: cover; image-rendering: pixelated; }
-#touch .count { position: absolute; right: 8%; bottom: 6%; font-size: 3.2vh; }
-#touch .move { flex-direction: row; border-radius: 15vh; overflow: hidden; }
-#touch .half { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11vh; }
+#touch .count { position: absolute; right: 8%; bottom: 6%; font-size: calc(3.2 * var(--u)); }
+#touch .move { flex-direction: row; border-radius: calc(15 * var(--u)); overflow: hidden; }
+#touch .half { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; font-size: calc(11 * var(--u)); }
 #touch .half + .half { border-left: 3px solid rgba(255,255,255,0.3); }
 #touch .half.on { background: rgba(255,255,255,0.35); }
 #touch .context { border-radius: 999px; background: rgba(255,243,160,0.93); border-color: rgba(58,42,16,0.8);
-  color: #1a1030; text-shadow: none; font-size: 5.2vh; font-weight: bold; }
+  color: #1a1030; text-shadow: none; font-size: calc(5.2 * var(--u)); font-weight: bold; }
 #touch .context.held { background: #fff; }
 `;
 
@@ -102,7 +102,7 @@ export class TouchOverlay {
     };
     // Movement: one wide ◀ ▶ bar in the bottom-left corner. Which half is held depends
     // only on which side of its middle the thumb is, so sliding across switches direction.
-    const moveEl = mk('move', { left: 'var(--el)', bottom: '5vh', width: '64vh', height: '30vh' });
+    const moveEl = mk('move', { left: 'var(--el)', bottom: 'calc(5 * var(--u))', width: 'calc(64 * var(--u))', height: 'calc(30 * var(--u))' });
     const half = (s: string) => {
       const h = document.createElement('div');
       h.className = 'half';
@@ -116,7 +116,7 @@ export class TouchOverlay {
     const d = () => session.data;
     const spells = () => SPELL_ORDER.filter((s) => d().abilities[s]).length;
     const button = (btn: ButtonName, size: number, pos: Partial<CSSStyleDeclaration>, text: string, visible: () => boolean, icon?: number, withCount = false) => {
-      const el = mk('', { width: `${size}vh`, height: `${size}vh`, fontSize: `${Math.min(size * 0.26, (size * 0.8) / text.length)}vh`, ...pos });
+      const el = mk('', { width: `calc(${size} * var(--u))`, height: `calc(${size} * var(--u))`, fontSize: `calc(${Math.min(size * 0.26, (size * 0.8) / text.length)} * var(--u))`, ...pos });
       const c: Ctl = { el, btn, visible };
       if (icon !== undefined) {
         c.icon = document.createElement('div');
@@ -137,18 +137,18 @@ export class TouchOverlay {
     };
     // Action buttons: bottom-right corner, big enough for thumbs.
     // Up (upward slash) and down (downward thrust in the air), small, above the move bar.
-    button('up', 15, { left: 'calc(var(--el) + 13vh)', bottom: '38vh' }, '▲', () => true);
-    button('down', 15, { left: 'calc(var(--el) + 36vh)', bottom: '38vh' }, '▼', () => true);
-    button('jump', 30, { right: 'var(--er)', bottom: '5vh' }, 'ジャンプ', () => true);
-    button('attack', 26, { right: 'calc(var(--er) + 30vh)', bottom: '12vh' }, '剣', () => true, IC.sword);
-    button('magic', 22, { right: 'calc(var(--er) + 20vh)', bottom: '36vh' }, '魔法', () => spells() > 0, IC.bolt);
-    button('switch', 15, { right: 'calc(var(--er) + 44vh)', bottom: '40vh' }, '切替', () => spells() > 1);
+    button('up', 15, { left: 'calc(var(--el) + calc(13 * var(--u)))', bottom: 'calc(38 * var(--u))' }, '▲', () => true);
+    button('down', 15, { left: 'calc(var(--el) + calc(36 * var(--u)))', bottom: 'calc(38 * var(--u))' }, '▼', () => true);
+    button('jump', 30, { right: 'var(--er)', bottom: 'calc(5 * var(--u))' }, 'ジャンプ', () => true);
+    button('attack', 26, { right: 'calc(var(--er) + calc(30 * var(--u)))', bottom: 'calc(12 * var(--u))' }, '剣', () => true, IC.sword);
+    button('magic', 22, { right: 'calc(var(--er) + calc(20 * var(--u)))', bottom: 'calc(36 * var(--u))' }, '魔法', () => spells() > 0, IC.bolt);
+    button('switch', 15, { right: 'calc(var(--er) + calc(44 * var(--u)))', bottom: 'calc(40 * var(--u))' }, '切替', () => spells() > 1);
     // Small buttons: a column at the right edge (the black bar on wide phones).
-    this.menuEl = button('menu', 14, { right: 'var(--er)', top: '3vh' }, 'MENU', () => true).el;
-    button('heal', 14, { right: 'var(--er)', top: '19vh' }, '回復', () => true, IC.potion, true);
-    button('ether', 14, { right: 'var(--er)', top: '35vh' }, 'MP', () => d().items.ether > 0, IC.ether, true);
+    this.menuEl = button('menu', 14, { right: 'var(--er)', top: 'calc(3 * var(--u))' }, 'MENU', () => true).el;
+    button('heal', 14, { right: 'var(--er)', top: 'calc(19 * var(--u))' }, '回復', () => true, IC.potion, true);
+    button('ether', 14, { right: 'var(--er)', top: 'calc(35 * var(--u))' }, 'MP', () => d().items.ether > 0, IC.ether, true);
     // Context button: shows the verb for what can be used right now.
-    const ctx = mk('context hidden', { right: 'calc(var(--er) + 58vh)', bottom: '6vh', width: '26vh', height: '14vh' });
+    const ctx = mk('context hidden', { right: 'calc(var(--er) + calc(58 * var(--u)))', bottom: 'calc(6 * var(--u))', width: 'calc(26 * var(--u))', height: 'calc(14 * var(--u))' });
     this.ctls.push({ el: ctx, btn: 'context', visible: () => !!session.interactHint });
   }
 
@@ -231,7 +231,7 @@ export class TouchOverlay {
       }
       if (c.btn === 'attack' && c.label && d.abilities.charge && c.label.textContent === '剣') {
         c.label.textContent = '剣（長押し）';
-        c.el.style.fontSize = '3.4vh';
+        c.el.style.fontSize = 'calc(3.4 * var(--u))';
       }
       if (c.count) c.count.textContent = String(c.btn === 'heal' ? d.items.potion + d.items.bigPotion : d.items.ether);
     }

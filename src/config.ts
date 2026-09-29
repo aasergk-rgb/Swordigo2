@@ -4,17 +4,25 @@ export const TILE = 16;
 export const VIEW_H = 270;
 /** Widest view; the rare room narrower than the view is centred in it. */
 const VIEW_W_MAX = 640;
+/** Narrowest view (4:3 tablets). */
+const VIEW_W_MIN = 360;
+
+/** True inside the Android (Capacitor) or iPad (Swift Playgrounds) app rather than a browser. */
+export function inNativeApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const w = window as { Capacitor?: { isNativePlatform?: () => boolean }; __nativeApp?: string };
+  return !!w.__nativeApp || !!w.Capacitor?.isNativePlatform?.();
+}
 
 /**
- * 480 (16:9) on the web. In the Android app the view widens to the phone's own shape,
- * so the game fills the whole screen with no black bars.
+ * 480 (16:9) on the web. In the apps the view takes the screen's own shape — wider on long
+ * phones, narrower on tablets — so the game fills the whole screen with no black bars.
  */
 function viewWidth(): number {
-  const w = typeof window === 'undefined' ? undefined : (window as { Capacitor?: { isNativePlatform?: () => boolean } });
-  if (!w?.Capacitor?.isNativePlatform?.()) return 480;
+  if (!inNativeApp()) return 480;
   const long = Math.max(screen.width, screen.height);
   const short = Math.min(screen.width, screen.height);
-  return Math.min(VIEW_W_MAX, Math.max(480, Math.round((VIEW_H * long) / short / 2) * 2));
+  return Math.min(VIEW_W_MAX, Math.max(VIEW_W_MIN, Math.round((VIEW_H * long) / short / 2) * 2));
 }
 
 export const VIEW_W = viewWidth();
