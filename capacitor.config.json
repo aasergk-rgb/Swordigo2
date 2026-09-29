@@ -1,0 +1,15 @@
+{
+  "appId": "com.luminablade.game",
+  "appName": "ルミナブレード",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#000000"
+  },
+  "plugins": {
+    "SystemBars": {
+      "hidden": true,
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

@@ -19,8 +19,8 @@ interface Ctl {
 }
 
 const CSS = `
-#touch { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: ${FONT}; user-select: none; -webkit-user-select: none; }
-#touch.off { display: none; }
+#touch { --el: max(2vw, env(safe-area-inset-left)); --er: max(2vw, env(safe-area-inset-right)); position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: ${FONT}; user-select: none; -webkit-user-select: none; }
+#touch.off, #touch.away { display: none; }
 #touch.dim .ctl { opacity: 0.2; pointer-events: none; }
 #touch .ctl { position: absolute; pointer-events: auto; border-radius: 50%; box-sizing: border-box;
   background: rgba(0,0,0,0.28); border: 3px solid rgba(255,255,255,0.45); color: #fff;
@@ -45,6 +45,7 @@ export class TouchOverlay {
   private move!: { el: HTMLDivElement; left: HTMLDivElement; right: HTMLDivElement };
   /** Fingers that started on a control: identifier → position. */
   private fingers = new Map<number, { x: number; y: number }>();
+  private menuEl!: HTMLDivElement;
   private iconUrls: Record<number, string> = {};
 
   constructor(private game: Phaser.Game) {
@@ -101,7 +102,7 @@ export class TouchOverlay {
     };
     // Movement: one wide ◀ ▶ bar in the bottom-left corner. Which half is held depends
     // only on which side of its middle the thumb is, so sliding across switches direction.
-    const moveEl = mk('move', { left: '2vw', bottom: '5vh', width: '64vh', height: '30vh' });
+    const moveEl = mk('move', { left: 'var(--el)', bottom: '5vh', width: '64vh', height: '30vh' });
     const half = (s: string) => {
       const h = document.createElement('div');
       h.className = 'half';
@@ -136,18 +137,18 @@ export class TouchOverlay {
     };
     // Action buttons: bottom-right corner, big enough for thumbs.
     // Up (upward slash) and down (downward thrust in the air), small, above the move bar.
-    button('up', 15, { left: 'calc(2vw + 13vh)', bottom: '38vh' }, '▲', () => true);
-    button('down', 15, { left: 'calc(2vw + 36vh)', bottom: '38vh' }, '▼', () => true);
-    button('jump', 30, { right: '2vw', bottom: '5vh' }, 'ジャンプ', () => true);
-    button('attack', 26, { right: 'calc(2vw + 30vh)', bottom: '12vh' }, '剣', () => true, IC.sword);
-    button('magic', 22, { right: 'calc(2vw + 20vh)', bottom: '36vh' }, '魔法', () => spells() > 0, IC.bolt);
-    button('switch', 15, { right: 'calc(2vw + 44vh)', bottom: '40vh' }, '切替', () => spells() > 1);
+    button('up', 15, { left: 'calc(var(--el) + 13vh)', bottom: '38vh' }, '▲', () => true);
+    button('down', 15, { left: 'calc(var(--el) + 36vh)', bottom: '38vh' }, '▼', () => true);
+    button('jump', 30, { right: 'var(--er)', bottom: '5vh' }, 'ジャンプ', () => true);
+    button('attack', 26, { right: 'calc(var(--er) + 30vh)', bottom: '12vh' }, '剣', () => true, IC.sword);
+    button('magic', 22, { right: 'calc(var(--er) + 20vh)', bottom: '36vh' }, '魔法', () => spells() > 0, IC.bolt);
+    button('switch', 15, { right: 'calc(var(--er) + 44vh)', bottom: '40vh' }, '切替', () => spells() > 1);
     // Small buttons: a column at the right edge (the black bar on wide phones).
-    button('menu', 14, { right: '2vw', top: '3vh' }, 'MENU', () => true);
-    button('heal', 14, { right: '2vw', top: '19vh' }, '回復', () => true, IC.potion, true);
-    button('ether', 14, { right: '2vw', top: '35vh' }, 'MP', () => d().items.ether > 0, IC.ether, true);
+    this.menuEl = button('menu', 14, { right: 'var(--er)', top: '3vh' }, 'MENU', () => true).el;
+    button('heal', 14, { right: 'var(--er)', top: '19vh' }, '回復', () => true, IC.potion, true);
+    button('ether', 14, { right: 'var(--er)', top: '35vh' }, 'MP', () => d().items.ether > 0, IC.ether, true);
     // Context button: shows the verb for what can be used right now.
-    const ctx = mk('context hidden', { right: 'calc(2vw + 58vh)', bottom: '6vh', width: '26vh', height: '14vh' });
+    const ctx = mk('context hidden', { right: 'calc(var(--er) + 58vh)', bottom: '6vh', width: '26vh', height: '14vh' });
     this.ctls.push({ el: ctx, btn: 'context', visible: () => !!session.interactHint });
   }
 
@@ -190,11 +191,25 @@ export class TouchOverlay {
   }
 
   private update(): void {
-    if (this.root.classList.contains('off')) return;
+    // Only shown while playing, not on the title or ending screens.
+    const away = !this.game.scene.isActive('Game');
+    if (away !== this.root.classList.contains('away')) {
+      this.root.classList.toggle('away', away);
+      this.fingers.clear();
+      session.touch = {};
+    }
+    if (this.root.classList.contains('off') || away) {
+      session.hudInsetRight = 0;
+      return;
+    }
     this.ensureIcons();
     this.root.classList.toggle('dim', session.uiBlocking);
     if (session.uiBlocking && Object.keys(session.touch).length) session.touch = {};
     const held = session.touch;
+    // Where the right button column overlaps the canvas (no black bar to sit in), the HUD moves left.
+    const canvas = this.game.canvas.getBoundingClientRect();
+    const col = this.menuEl.getBoundingClientRect();
+    session.hudInsetRight = canvas.width ? Math.max(0, Math.ceil(((canvas.right - col.left + 6) * this.game.scale.width) / canvas.width)) : 0;
     this.move.left.classList.toggle('on', !!held.left);
     this.move.right.classList.toggle('on', !!held.right);
     const d = session.data;

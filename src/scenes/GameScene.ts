@@ -180,7 +180,9 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
 
     const cam = this.cameras.main;
     cam.setZoom(RENDER_SCALE);
-    cam.setBounds(0, 0, w, h);
+    // A room narrower than the view (only on very wide phones) is centred rather than pinned left.
+    const padX = Math.max(0, VIEW_W - w) / 2;
+    cam.setBounds(-padX, 0, w + padX * 2, h);
     cam.startFollow(this.player, true, 0.15, 0.15, 0, 10);
     cam.setDeadzone(40, 30);
     cam.setRoundPixels(true);

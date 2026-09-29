@@ -23,6 +23,8 @@ export const session = {
   roomArea: '',
   /** Verb for what the player can use right now ("話す", "開ける"...), or null. */
   interactHint: null as string | null,
+  /** Canvas pixels at the right edge covered by the touch buttons (written by the overlay). */
+  hudInsetRight: 0,
 };
 
 export function saveGame(): boolean {

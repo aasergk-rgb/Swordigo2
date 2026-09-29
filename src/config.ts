@@ -1,8 +1,23 @@
 // Tunable numbers. Values follow docs/03_game_system.md (all provisional).
 
 export const TILE = 16;
-export const VIEW_W = 480;
 export const VIEW_H = 270;
+/** Widest view; the rare room narrower than the view is centred in it. */
+const VIEW_W_MAX = 640;
+
+/**
+ * 480 (16:9) on the web. In the Android app the view widens to the phone's own shape,
+ * so the game fills the whole screen with no black bars.
+ */
+function viewWidth(): number {
+  const w = typeof window === 'undefined' ? undefined : (window as { Capacitor?: { isNativePlatform?: () => boolean } });
+  if (!w?.Capacitor?.isNativePlatform?.()) return 480;
+  const long = Math.max(screen.width, screen.height);
+  const short = Math.min(screen.width, screen.height);
+  return Math.min(VIEW_W_MAX, Math.max(480, Math.round((VIEW_H * long) / short / 2) * 2));
+}
+
+export const VIEW_W = viewWidth();
 /** The canvas is rendered at 2x so UI text stays sharp; the world camera zooms back in. */
 export const RENDER_SCALE = 2;
 

@@ -33,6 +33,18 @@ npm run typecheck  # 型チェック
 npm run build      # dist/ に書き出し
 ```
 
+### Android版（APK）
+
+Capacitor で Web 版をそのままアプリにしています（`android/`）。Java 21 と Android SDK（`ANDROID_HOME`）が必要です。
+
+```bash
+npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+- 横画面固定・全画面（ステータスバーとナビゲーションバーを隠し、カメラの切り欠き部分まで使う）。
+- 画面の縦横比に合わせて見える範囲を横に広げる（480〜640px）ので、黒い余白が出ません。
+- 署名鍵 `android/app/debug.keystore` を固定しているので、新しい APK をそのまま上書きインストールでき、セーブも残ります。
+
 開発サーバーで `/art.html` を開くと、コードで描いたドット絵を一覧できます。
 
 | 場所 | 中身 |

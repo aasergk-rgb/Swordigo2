@@ -603,6 +603,8 @@ export class HUDScene extends Phaser.Scene {
     const d = session.data;
     const g = this.g.clear();
     const W = this.scale.width;
+    // Right edge of the free HUD area: left of the touch buttons when they overlap the canvas.
+    const R = W - session.hudInsetRight;
     for (const i of this.icons) i.setVisible(false);
     let n = 0;
     const icon = (x: number, y: number, frame: number, scale = 2) => {
@@ -644,19 +646,19 @@ export class HUDScene extends Phaser.Scene {
     this.texts.items.setPosition(20, mpY + 40).setText(`雫×${d.items.potion + d.items.bigPotion}  粉×${d.items.ether}`);
 
     // Coins and keys, top right.
-    icon(W - 20 - this.texts.coins.width - 20, 28, IC.coin, 1.5);
-    this.texts.coins.setText(`${d.coins}`);
+    this.texts.coins.setPosition(R - 20, 16).setText(`${d.coins}`);
+    icon(R - 20 - this.texts.coins.width - 20, 28, IC.coin, 1.5);
     const roomArea = session.roomArea;
     const k = d.keys[roomArea] ?? 0;
     const bk = d.bossKeys.includes(roomArea);
-    this.texts.keys.setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}  欠片 ${d.fragments}/4`);
+    this.texts.keys.setPosition(R - 20, 44).setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}  欠片 ${d.fragments}/4`);
 
     // Selected spell.
     if (SPELL_ORDER.some((s) => d.abilities[s])) {
-      g.fillStyle(0x10102a, 0.8).fillRoundedRect(W - 58, 66, 44, 44, 8);
-      g.lineStyle(2, 0xcfd8ff, 0.7).strokeRoundedRect(W - 58, 66, 44, 44, 8);
-      icon(W - 36, 88, IC[d.spell], 2);
-      this.texts.spell.setText(`${SPELLS[d.spell].name}\nMP ${SPELLS[d.spell].cost}`).setVisible(true);
+      g.fillStyle(0x10102a, 0.8).fillRoundedRect(R - 58, 66, 44, 44, 8);
+      g.lineStyle(2, 0xcfd8ff, 0.7).strokeRoundedRect(R - 58, 66, 44, 44, 8);
+      icon(R - 36, 88, IC[d.spell], 2);
+      this.texts.spell.setPosition(R - 64, 76).setText(`${SPELLS[d.spell].name}\nMP ${SPELLS[d.spell].cost}`).setVisible(true);
     } else this.texts.spell.setVisible(false);
 
     // Boss bar.
