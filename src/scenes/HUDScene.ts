@@ -571,7 +571,7 @@ export class HUDScene extends Phaser.Scene {
           const id = gear()[this.cursor];
           return id ? `${EQUIPMENT[id].desc}\n${byMode('Z で装備', '「装備する」で装備')}（お守りは2つまで）` : '';
         }
-        if (task.tab === 3) return `現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
+        if (task.tab === 3) return `ファイル${session.slot + 1}　　現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
         if (task.tab === 4) {
           return [
             'スマホの移動ボタンを ◀ ▶ ボタンと十字キーで切り替えます。十字キーは上下・斜めも押せます',

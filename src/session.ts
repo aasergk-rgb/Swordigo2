@@ -28,26 +28,54 @@ export const session = {
    * status block, right edge and vertical offset of the purse. `right` null = canvas edge.
    */
   hud: { sx: 0, sy: 0, right: null as number | null, py: 0 },
+  /** Save file in use (0-based). */
+  slot: 0,
 };
 
-/** The iPad app keeps the save natively: it hands it in at start-up and takes each new one. */
+// ---------------------------------------------------------------- save files
+// Three save files. File 1 uses the original key, so saves from before files existed stay.
+export const SLOTS = 3;
+const slotKey = (i: number) => (i === 0 ? SAVE_KEY : `${SAVE_KEY}.${i + 1}`);
+
+/**
+ * The iPad app keeps the saves natively: it hands them in at start-up and takes each new
+ * version. The native value is `{"slots":[...]}` (older apps held a single save = file 1).
+ */
 interface NativeSave {
   __nativeSave?: string | null;
   webkit?: { messageHandlers?: { save?: { postMessage(s: string): void } } };
 }
 const native = (typeof window === 'undefined' ? {} : window) as NativeSave;
 
-export function saveGame(): boolean {
-  const text = serialize(session.data);
+function nativeSlots(): (string | null)[] | null {
+  if (!native.webkit?.messageHandlers?.save && !native.__nativeSave) return null;
+  const raw = native.__nativeSave;
+  const out: (string | null)[] = Array(SLOTS).fill(null);
+  if (!raw) return out;
+  try {
+    const v = JSON.parse(raw) as { slots?: unknown };
+    if (Array.isArray(v.slots)) v.slots.slice(0, SLOTS).forEach((t, i) => (out[i] = typeof t === 'string' ? t : null));
+    else out[0] = raw;
+  } catch {
+    // Unreadable: treat as empty.
+  }
+  return out;
+}
+
+function writeSlot(i: number, text: string | null): boolean {
   let ok = false;
+  const slots = nativeSlots();
   const bridge = native.webkit?.messageHandlers?.save;
-  if (bridge) {
-    bridge.postMessage(text);
-    native.__nativeSave = text;
+  if (slots && bridge) {
+    slots[i] = text;
+    const all = JSON.stringify({ slots });
+    bridge.postMessage(all);
+    native.__nativeSave = all;
     ok = true;
   }
   try {
-    localStorage.setItem(SAVE_KEY, text);
+    if (text === null) localStorage.removeItem(slotKey(i));
+    else localStorage.setItem(slotKey(i), text);
     ok = true;
   } catch {
     // Storage can be unavailable (private mode); the native copy may still have it.
@@ -55,13 +83,29 @@ export function saveGame(): boolean {
   return ok;
 }
 
-export function loadGame(): SaveData | null {
+/** The save in file `i` (0-based), or null when empty. */
+export function loadSlot(i: number): SaveData | null {
   try {
-    if (native.__nativeSave) return deserialize(native.__nativeSave);
-    return deserialize(localStorage.getItem(SAVE_KEY));
+    const slots = nativeSlots();
+    if (slots) return deserialize(slots[i]);
+    return deserialize(localStorage.getItem(slotKey(i)));
   } catch {
     return null;
   }
+}
+
+/** Saves the adventure into the file it was started from or loaded from. */
+export function saveGame(): boolean {
+  return writeSlot(session.slot, serialize(session.data));
+}
+
+export function deleteSlot(i: number): void {
+  writeSlot(i, null);
+}
+
+/** The save in the current file (kept for callers that just want "the" save). */
+export function loadGame(): SaveData | null {
+  return loadSlot(session.slot);
 }
 
 // Requests sent from the game scene to the HUD. Each carries a callback for its result.
