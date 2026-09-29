@@ -13,10 +13,16 @@ struct GameView: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
 
-        // The save lives in UserDefaults: handed to the page at start-up, updated on each save.
+        // The save and the settings live in UserDefaults: handed to the page at start-up,
+        // updated whenever the page stores them.
         let content = config.userContentController
-        content.add(context.coordinator, name: "save")
-        let startup = "window.__nativeApp = 'ios'; window.__nativeSave = \(SaveStore.jsLiteral(context.coordinator.load()));"
+        let store = context.coordinator
+        for name in SaveStore.names {
+            content.add(store, name: name)
+        }
+        let startup = "window.__nativeApp = 'ios';"
+            + " window.__nativeSave = \(SaveStore.jsLiteral(store.load("save")));"
+            + " window.__nativeSettings = \(SaveStore.jsLiteral(store.load("settings")));"
         content.addUserScript(WKUserScript(source: startup, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         let web = WKWebView(frame: .zero, configuration: config)
@@ -33,17 +39,18 @@ struct GameView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
-/// Keeps the game's save data (a JSON string) in UserDefaults.
+/// Keeps the game's save data and settings (JSON strings) in UserDefaults.
 final class SaveStore: NSObject, WKScriptMessageHandler {
-    private static let key = "luminablade.save"
+    /// Message handler names; each is stored under its own key.
+    static let names = ["save", "settings"]
 
-    func load() -> String? {
-        UserDefaults.standard.string(forKey: Self.key)
+    func load(_ name: String) -> String? {
+        UserDefaults.standard.string(forKey: "luminablade.\(name)")
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if let text = message.body as? String {
-            UserDefaults.standard.set(text, forKey: Self.key)
+        if let text = message.body as? String, Self.names.contains(message.name) {
+            UserDefaults.standard.set(text, forKey: "luminablade.\(message.name)")
         }
     }
 

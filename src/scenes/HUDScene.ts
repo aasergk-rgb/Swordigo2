@@ -7,6 +7,7 @@ import { controlsRef } from '../input';
 import { applyLevelChoice, attackPower, buy, defense, equip, expToNext, maxHp, type StatChoice } from '../progress';
 import { EV, saveGame, session } from '../session';
 import { byMode, fmt, inputMode, onInputMode } from '../inputMode';
+import { OPACITIES, SIZES, cycle, labelOf, resetLayout, saveSettings, settings } from '../settings';
 import { FONT } from '../ui';
 
 type Done<T = void> = (v: T) => void;
@@ -16,6 +17,7 @@ type UiTask =
   | { type: 'levelup'; count: number; done?: Done }
   | { type: 'choice'; question: string; options: string[]; done: Done<number> }
   | { type: 'banner'; title: string; sub: string; done?: Done }
+  | { type: 'edit'; done?: Done }
   | { type: 'list'; title: string; build: () => ListRow[]; onPick: (i: number) => boolean | void; done?: Done<number | null>; footer?: () => string; tabs?: string[]; tab?: number; onTab?: (t: number) => void };
 
 interface ListRow {
@@ -151,6 +153,7 @@ export class HUDScene extends Phaser.Scene {
     } else if (t.type === 'levelup') this.drawLevelUp();
     else if (t.type === 'choice') this.drawChoice();
     else if (t.type === 'banner') this.drawBanner();
+    else if (t.type === 'edit') this.game.events.emit(EV.edit, () => this.next());
     else this.drawList();
   }
 
@@ -307,8 +310,9 @@ export class HUDScene extends Phaser.Scene {
     close.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.next(null));
     if (t.tabs) {
       let tabsEnd = 0;
+      const step = Math.min(150, (w - 110) / t.tabs.length);
       t.tabs.forEach((name, i) => {
-        const tx = this.add2(this.add.text(x0 + 30 + i * 150, 66, name, { fontFamily: FONT, fontSize: '22px', color: i === t.tab ? '#fff3a0' : '#7a82a0' }));
+        const tx = this.add2(this.add.text(x0 + 30 + i * step, 66, name, { fontFamily: FONT, fontSize: step < 130 ? '19px' : '22px', color: i === t.tab ? '#fff3a0' : '#7a82a0' }));
         tabsEnd = tx.x + tx.width;
         if (i === t.tab) this.add2(this.add.rectangle(tx.x, 96, tx.width, 3, 0xfff3a0).setOrigin(0));
         tx.setInteractive().on('pointerdown', () => {
@@ -358,7 +362,7 @@ export class HUDScene extends Phaser.Scene {
       else if (this.current.type === 'levelup') this.drawLevelUp();
       else if (this.current.type === 'choice') this.drawChoice();
       else if (this.current.type === 'banner') this.drawBanner();
-      else this.drawList();
+      else if (this.current.type !== 'edit') this.drawList();
       this.cursor = keep;
       this.scrollTop = top;
     }
@@ -414,7 +418,7 @@ export class HUDScene extends Phaser.Scene {
 
   private openMenu(tab: number): void {
     const d = session.data;
-    const tabs = ['装備', '持ち物', 'ステータス', '記録'];
+    const tabs = ['装備', '持ち物', 'ステータス', '記録', '設定'];
     const slotOrder = ['sword', 'armor', 'charm'];
     const gear = () => [...d.owned].sort((a, b) => slotOrder.indexOf(EQUIPMENT[a].slot) - slotOrder.indexOf(EQUIPMENT[b].slot));
     const task: Extract<UiTask, { type: 'list' }> = {
@@ -468,6 +472,14 @@ export class HUDScene extends Phaser.Scene {
               { text: `やさしいモード：${d.easy ? 'オン' : 'オフ'}（${byMode('Z', '2回タップ')}で切り替え）` },
             ];
           }
+          case 4:
+            return [
+              { text: `移動ボタン：${settings.pad === 'bar' ? '◀ ▶ ボタン' : '十字キー'}` },
+              { text: `ボタンの大きさ：${labelOf(SIZES, settings.size)}` },
+              { text: `ボタンの濃さ：${labelOf(OPACITIES, settings.opacity)}` },
+              { text: 'ボタンとHP表示の配置を変える' },
+              { text: '配置を元に戻す' },
+            ];
           default: {
             const rows: ListRow[] = [];
             for (const [area, name] of Object.entries(AREA_NAMES)) {
@@ -489,6 +501,16 @@ export class HUDScene extends Phaser.Scene {
           return id ? `${EQUIPMENT[id].desc}\n${byMode('Z', '2回タップ')}で装備（お守りは2つまで）` : '';
         }
         if (task.tab === 3) return `現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
+        if (task.tab === 4) {
+          const how = byMode('Z', '2回タップ');
+          return [
+            `${how}で切り替え。十字キーは上下・斜めも押せます`,
+            `${how}で切り替え（小・中・大・特大）`,
+            `${how}で切り替え（うすい・ふつう・こい）`,
+            `${how}で編集画面へ。ボタンやHP表示をドラッグで動かし、大きさも変えられます`,
+            `${how}でボタンとHP表示の位置・大きさを最初の状態に戻します`,
+          ][this.cursor] ?? '';
+        }
         return '';
       },
       onPick: (i) => {
@@ -502,6 +524,18 @@ export class HUDScene extends Phaser.Scene {
         } else if (task.tab === 2 && i === 8) {
           d.easy = !d.easy;
           saveGame();
+        } else if (task.tab === 4) {
+          if (i === 0) settings.pad = settings.pad === 'bar' ? 'dpad' : 'bar';
+          else if (i === 1) settings.size = cycle(SIZES, settings.size).v;
+          else if (i === 2) settings.opacity = cycle(OPACITIES, settings.opacity).v;
+          else if (i === 3) {
+            this.queue.unshift({ type: 'edit' });
+            return true;
+          } else if (i === 4) {
+            resetLayout();
+            this.toast('ボタンとHP表示を元の配置に戻した');
+          }
+          saveSettings();
         }
         return false;
       },
@@ -558,6 +592,7 @@ export class HUDScene extends Phaser.Scene {
     if (!t) return;
     const c = controlsRef.current;
     const ready = this.time.now - this.openedAt > 150;
+    if (t.type === 'edit') return;
     if (t.type === 'dialog') {
       this.updateDialog(delta / 1000);
       if (ready && c && (c.justDown('jump') || c.justDown('attack') || c.justDown('up'))) this.dialogAdvance();
@@ -608,8 +643,9 @@ export class HUDScene extends Phaser.Scene {
     const d = session.data;
     const g = this.g.clear();
     const W = this.scale.width;
-    // Right edge of the free HUD area: left of the touch buttons when they overlap the canvas.
-    const R = W - session.hudInsetRight;
+    // Block positions from the layout settings (see TouchOverlay.updateHud).
+    const { sx, sy, py } = session.hud;
+    const R = session.hud.right ?? W;
     for (const i of this.icons) i.setVisible(false);
     let n = 0;
     const icon = (x: number, y: number, frame: number, scale = 2) => {
@@ -628,42 +664,43 @@ export class HUDScene extends Phaser.Scene {
     const hearts = Math.ceil(mh / 2);
     let rowsH = 26;
     if (hearts > 24) {
-      icon(34, 28, d.hp > 0 ? IC.heartFull : IC.heartEmpty, 1.6);
-      this.texts.hp.setVisible(true).setPosition(50, 17).setText(`${Math.max(0, d.hp)} / ${mh}`);
+      icon(sx + 34, sy + 28, d.hp > 0 ? IC.heartFull : IC.heartEmpty, 1.6);
+      this.texts.hp.setVisible(true).setPosition(sx + 50, sy + 17).setText(`${Math.max(0, d.hp)} / ${mh}`);
     } else {
       this.texts.hp.setVisible(false);
       for (let i = 0; i < hearts; i++) {
         const fill = Phaser.Math.Clamp(d.hp - i * 2, 0, 2);
         const row = Math.floor(i / 12);
-        icon(34 + (i % 12) * 26, 28 + row * 26, fill === 2 ? IC.heartFull : fill === 1 ? IC.heartHalf : IC.heartEmpty, 1.6);
+        icon(sx + 34 + (i % 12) * 26, sy + 28 + row * 26, fill === 2 ? IC.heartFull : fill === 1 ? IC.heartHalf : IC.heartEmpty, 1.6);
       }
       rowsH = Math.ceil(hearts / 12) * 26;
     }
     // MP bar.
-    const mpY = 18 + rowsH + 8;
-    icon(30, mpY + 6, IC.mp, 1.2);
+    const mpY = sy + 18 + rowsH + 8;
+    const mpX = sx + 44;
+    icon(sx + 30, mpY + 6, IC.mp, 1.2);
     const mpW = 20 + d.mpMax * 5;
-    g.fillStyle(0x10203a).fillRect(44, mpY, mpW, 12);
-    g.fillStyle(0x5fa8ff).fillRect(44, mpY, (mpW * Math.max(0, d.mp)) / d.mpMax, 12);
-    g.fillStyle(0xbfe0ff).fillRect(44, mpY, (mpW * Math.max(0, d.mp)) / d.mpMax, 3);
-    g.lineStyle(2, 0x000000).strokeRect(44, mpY, mpW, 12);
-    this.texts.lv.setPosition(20, mpY + 18).setText(`Lv ${d.level}   EXP ${d.exp}/${expToNext(d.level)}`);
-    this.texts.items.setPosition(20, mpY + 40).setText(`雫×${d.items.potion + d.items.bigPotion}  粉×${d.items.ether}`);
+    g.fillStyle(0x10203a).fillRect(mpX, mpY, mpW, 12);
+    g.fillStyle(0x5fa8ff).fillRect(mpX, mpY, (mpW * Math.max(0, d.mp)) / d.mpMax, 12);
+    g.fillStyle(0xbfe0ff).fillRect(mpX, mpY, (mpW * Math.max(0, d.mp)) / d.mpMax, 3);
+    g.lineStyle(2, 0x000000).strokeRect(mpX, mpY, mpW, 12);
+    this.texts.lv.setPosition(sx + 20, mpY + 18).setText(`Lv ${d.level}   EXP ${d.exp}/${expToNext(d.level)}`);
+    this.texts.items.setPosition(sx + 20, mpY + 40).setText(`雫×${d.items.potion + d.items.bigPotion}  粉×${d.items.ether}`);
 
     // Coins and keys, top right.
-    this.texts.coins.setPosition(R - 20, 16).setText(`${d.coins}`);
-    icon(R - 20 - this.texts.coins.width - 20, 28, IC.coin, 1.5);
+    this.texts.coins.setPosition(R - 20, py + 16).setText(`${d.coins}`);
+    icon(R - 20 - this.texts.coins.width - 20, py + 28, IC.coin, 1.5);
     const roomArea = session.roomArea;
     const k = d.keys[roomArea] ?? 0;
     const bk = d.bossKeys.includes(roomArea);
-    this.texts.keys.setPosition(R - 20, 44).setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}  欠片 ${d.fragments}/4`);
+    this.texts.keys.setPosition(R - 20, py + 44).setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}  欠片 ${d.fragments}/4`);
 
     // Selected spell.
     if (SPELL_ORDER.some((s) => d.abilities[s])) {
-      g.fillStyle(0x10102a, 0.8).fillRoundedRect(R - 58, 66, 44, 44, 8);
-      g.lineStyle(2, 0xcfd8ff, 0.7).strokeRoundedRect(R - 58, 66, 44, 44, 8);
-      icon(R - 36, 88, IC[d.spell], 2);
-      this.texts.spell.setPosition(R - 64, 76).setText(`${SPELLS[d.spell].name}\nMP ${SPELLS[d.spell].cost}`).setVisible(true);
+      g.fillStyle(0x10102a, 0.8).fillRoundedRect(R - 58, py + 66, 44, 44, 8);
+      g.lineStyle(2, 0xcfd8ff, 0.7).strokeRoundedRect(R - 58, py + 66, 44, 44, 8);
+      icon(R - 36, py + 88, IC[d.spell], 2);
+      this.texts.spell.setPosition(R - 64, py + 76).setText(`${SPELLS[d.spell].name}\nMP ${SPELLS[d.spell].cost}`).setVisible(true);
     } else this.texts.spell.setVisible(false);
 
     // Boss bar.

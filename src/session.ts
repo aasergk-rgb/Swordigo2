@@ -23,8 +23,11 @@ export const session = {
   roomArea: '',
   /** Verb for what the player can use right now ("話す", "開ける"...), or null. */
   interactHint: null as string | null,
-  /** Canvas pixels at the right edge covered by the touch buttons (written by the overlay). */
-  hudInsetRight: 0,
+  /**
+   * Where the HUD blocks go, in canvas pixels (written by the touch overlay): offset of the
+   * status block, right edge and vertical offset of the purse. `right` null = canvas edge.
+   */
+  hud: { sx: 0, sy: 0, right: null as number | null, py: 0 },
 };
 
 /** The iPad app keeps the save natively: it hands it in at start-up and takes each new one. */
@@ -72,6 +75,7 @@ export const EV = {
   warp: 'ui:warp', // (done(roomId | null))
   menu: 'ui:menu', // (done)
   area: 'ui:area', // (name) area title card
+  edit: 'ui:edit', // (done) touch-control and HUD layout editor
 } as const;
 
 export type DialogHandler = (lines: Line[], onDone?: () => void) => void;
