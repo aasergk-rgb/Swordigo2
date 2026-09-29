@@ -55,7 +55,13 @@ export class TitleScene extends Phaser.Scene {
       this.add
         .text(W / 2, 410 + i * 44, it.label, { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#000', strokeThickness: 5 })
         .setOrigin(0.5)
-        .setDepth(6)
+        .setDepth(6),
+    );
+    // Wide tap zones, so a finger doesn't have to land on the letters.
+    items.forEach((it, i) =>
+      this.add
+        .zone(W / 2, 410 + i * 44, 380, 44)
+        .setDepth(7)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => it.run()),
     );

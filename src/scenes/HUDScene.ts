@@ -18,7 +18,19 @@ type UiTask =
   | { type: 'choice'; question: string; options: string[]; done: Done<number> }
   | { type: 'banner'; title: string; sub: string; done?: Done }
   | { type: 'edit'; done?: Done }
-  | { type: 'list'; title: string; build: () => ListRow[]; onPick: (i: number) => boolean | void; done?: Done<number | null>; footer?: () => string; tabs?: string[]; tab?: number; onTab?: (t: number) => void };
+  | {
+      type: 'list';
+      title: string;
+      build: () => ListRow[];
+      onPick: (i: number) => boolean | void;
+      /** Label of the action button for the selected row; null hides it, `off` greys it out. */
+      action: (i: number) => { label: string; off?: boolean } | null;
+      done?: Done<number | null>;
+      footer?: () => string;
+      tabs?: string[];
+      tab?: number;
+      onTab?: (t: number) => void;
+    };
 
 interface ListRow {
   text: string;
@@ -219,6 +231,26 @@ export class HUDScene extends Phaser.Scene {
     return o;
   }
 
+  /** Makes an object tappable over a larger area than its own bounds (text is small to hit). */
+  private tappable<T extends Phaser.GameObjects.Text>(o: T, fn: () => void, padX = 16, padY = 10): T {
+    o.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-padX, -padY, o.width + padX * 2, o.height + padY * 2), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
+    o.on('pointerdown', fn);
+    return o;
+  }
+
+  /** A gold button in the game's style, anchored at its bottom-right corner. */
+  private actionButton(right: number, bottom: number, label: string, off: boolean, fn: () => void): Phaser.GameObjects.Text {
+    const b = this.add2(
+      this.add
+        .text(right, bottom, label, { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: off ? '#8a8070' : '#1a1030', backgroundColor: off ? '#3a3448' : '#e0b850', padding: { x: 22, y: 8 } })
+        .setOrigin(1, 1),
+    );
+    const edge = this.add2(this.add.rectangle(b.x - b.width, b.y - b.height, b.width, b.height).setOrigin(0).setStrokeStyle(3, off ? 0x5a5070 : 0xfff3a0));
+    edge.setDepth(b.depth);
+    if (!off) this.tappable(b, fn, 10, 8);
+    return b;
+  }
+
   private shade(alpha = 0.65): void {
     const W = this.scale.width;
     const H = this.scale.height;
@@ -237,7 +269,8 @@ export class HUDScene extends Phaser.Scene {
     this.panel.setVisible(true);
     this.shade();
     this.add2(this.add.text(W / 2, 110, `レベルアップ！  Lv ${session.data.level}\n伸ばす力を 1 つ選ぼう`, { fontFamily: FONT, fontSize: '32px', color: '#fff3a0', stroke: '#000', strokeThickness: 5, align: 'center' }).setOrigin(0.5));
-    this.add2(this.add.text(W / 2, H - 90, byMode('← → で選んで Z で決定', 'やりたいものをタップして決定'), { fontFamily: FONT, fontSize: '18px', color: '#dddddd' }).setOrigin(0.5));
+    this.add2(this.add.text(W / 2, H - 90, byMode('← → で選んで Z で決定', '伸ばしたい力をタップして「決定」'), { fontFamily: FONT, fontSize: '18px', color: '#dddddd' }).setOrigin(0.5));
+    if (inputMode.current === 'touch') this.actionButton(W - 40, H - 30, '決定', false, () => this.pickStat());
     CHOICES.forEach((c, i) => {
       const x = W / 2 + (i - 1) * 230;
       const on = i === this.cursor;
@@ -246,7 +279,9 @@ export class HUDScene extends Phaser.Scene {
       this.add2(this.add.text(x, H / 2 + 30, c.desc, { fontFamily: FONT, fontSize: '20px', color: '#cfe0ff', align: 'center' }).setOrigin(0.5));
       box.setInteractive().on('pointerdown', () => {
         this.cursor = i;
-        this.pickStat();
+        // Touch picks with the 決定 button; a mouse click picks at once.
+        if (inputMode.current === 'touch') this.redraw();
+        else this.pickStat();
       });
     });
   }
@@ -272,8 +307,12 @@ export class HUDScene extends Phaser.Scene {
     this.frame(W / 2 - 260, y, 520, h);
     this.add2(this.add.text(W / 2, y + 20, t.question, { fontFamily: FONT, fontSize: '22px', color: '#ffd98a', align: 'center' }).setOrigin(0.5, 0));
     t.options.forEach((o, i) => {
-      const txt = this.add2(this.add.text(W / 2, y + 64 + i * 40, (i === this.cursor ? '▶ ' : '   ') + o, { fontFamily: FONT, fontSize: '22px', color: i === this.cursor ? '#ffffff' : '#9aa3c0' }).setOrigin(0.5, 0));
-      txt.setInteractive().on('pointerdown', () => {
+      const oy = y + 64 + i * 40;
+      const on = i === this.cursor;
+      const row = this.add2(this.add.rectangle(W / 2, oy + 14, 480, 36, on ? 0x2a2a5a : 0x000000, on ? 1 : 0.001));
+      this.add2(this.add.text(W / 2, oy, (on ? '▶ ' : '   ') + o, { fontFamily: FONT, fontSize: '22px', color: on ? '#ffffff' : '#9aa3c0' }).setOrigin(0.5, 0));
+      // The whole row is the button.
+      row.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         this.cursor = i;
         this.next(i);
       });
@@ -307,7 +346,7 @@ export class HUDScene extends Phaser.Scene {
     this.frame(x0, 50, w, H - 110);
     // A big close button, for fingers and mice alike.
     const close = this.add2(this.add.text(x0 + w - 16, 58, '✕', { fontFamily: FONT, fontSize: '30px', color: '#ffffff', backgroundColor: '#3a2a5a', padding: { x: 10, y: 2 } }).setOrigin(1, 0));
-    close.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.next(null));
+    this.tappable(close, () => this.next(null), 14, 10);
     if (t.tabs) {
       let tabsEnd = 0;
       const step = Math.min(150, (w - 110) / t.tabs.length);
@@ -315,19 +354,18 @@ export class HUDScene extends Phaser.Scene {
         const tx = this.add2(this.add.text(x0 + 30 + i * step, 66, name, { fontFamily: FONT, fontSize: step < 130 ? '19px' : '22px', color: i === t.tab ? '#fff3a0' : '#7a82a0' }));
         tabsEnd = tx.x + tx.width;
         if (i === t.tab) this.add2(this.add.rectangle(tx.x, 96, tx.width, 3, 0xfff3a0).setOrigin(0));
-        tx.setInteractive().on('pointerdown', () => {
-          t.onTab?.(i);
-        });
+        this.tappable(tx, () => t.onTab?.(i), Math.max(8, (step - tx.width) / 2), 14);
       });
-      const hint = this.add2(this.add.text(x0 + w - 70, 70, byMode('← → 切り替え  ↑↓ 選択  Z 決定  X 閉じる', 'タブをタップで切り替え・項目は2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      const hint = this.add2(this.add.text(x0 + w - 70, 70, byMode('← → 切り替え  ↑↓ 選択  Z 決定  X 閉じる', 'タブで切り替え・選んで右下のボタンで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
       // No room beside the tabs: the hint goes just above the panel.
       if (hint.x - hint.width < tabsEnd + 16) hint.setPosition(x0 + w, 28);
     } else {
       this.add2(this.add.text(x0 + 30, 66, t.title, { fontFamily: FONT, fontSize: '24px', color: '#fff3a0' }));
-      this.add2(this.add.text(x0 + w - 70, 70, byMode('↑↓ 選択  Z 決定  X 閉じる', '2回タップで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
+      this.add2(this.add.text(x0 + w - 70, 70, byMode('↑↓ 選択  Z 決定  X 閉じる', '選んで右下のボタンで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
     }
     const rows = t.build();
     const perPage = 9;
+    const more = rows.length > perPage;
     if (this.cursor >= rows.length) this.cursor = Math.max(0, rows.length - 1);
     if (this.cursor < this.scrollTop) this.scrollTop = this.cursor;
     if (this.cursor >= this.scrollTop + perPage) this.scrollTop = this.cursor - perPage + 1;
@@ -335,22 +373,42 @@ export class HUDScene extends Phaser.Scene {
       const i = k + this.scrollTop;
       const y = 112 + k * 34;
       const on = i === this.cursor;
-      if (on) this.add2(this.add.rectangle(x0 + 16, y - 3, w - 32, 32, 0x2a2a5a).setOrigin(0));
+      // The whole row selects (a tap anywhere on it); the action button then does it.
+      const hit = this.add2(this.add.rectangle(x0 + 16, y - 3, w - 32 - (more ? 56 : 0), 33, 0x2a2a5a, on ? 1 : 0.001).setOrigin(0));
       if (r.icon !== undefined) this.add2(this.add.image(x0 + 38, y + 13, 'icons', r.icon).setScale(1.5));
-      const txt = this.add2(this.add.text(x0 + 60, y, fmt(r.text), { fontFamily: FONT, fontSize: '20px', color: r.dim ? '#6a7090' : on ? '#ffffff' : '#c8d0e8' }));
-      if (r.sub) this.add2(this.add.text(x0 + w - 30, y + 2, fmt(r.sub), { fontFamily: FONT, fontSize: '18px', color: '#ffd98a' }).setOrigin(1, 0));
-      txt.setInteractive().on('pointerdown', () => {
-        if (this.cursor === i) this.listPick();
+      this.add2(this.add.text(x0 + 60, y, fmt(r.text), { fontFamily: FONT, fontSize: '20px', color: r.dim ? '#6a7090' : on ? '#ffffff' : '#c8d0e8' }));
+      if (r.sub) this.add2(this.add.text(x0 + w - 30 - (more ? 56 : 0), y + 2, fmt(r.sub), { fontFamily: FONT, fontSize: '18px', color: '#ffd98a' }).setOrigin(1, 0));
+      hit.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+        if (this.cursor === i && inputMode.current !== 'touch') this.listPick();
         else {
           this.cursor = i;
           this.redraw();
         }
       });
     });
+    // Page buttons when the list is longer than the panel.
+    if (more) {
+      const px = x0 + w - 44;
+      const page = (label: string, y: number, dir: number) => {
+        const can = dir < 0 ? this.scrollTop > 0 : this.scrollTop + perPage < rows.length;
+        const b = this.add2(this.add.text(px, y, label, { fontFamily: FONT, fontSize: '22px', color: can ? '#1a1030' : '#6a6480', backgroundColor: can ? '#e0b850' : '#2a2640', padding: { x: 10, y: 6 } }).setOrigin(0.5));
+        if (can)
+          this.tappable(b, () => {
+            this.scrollTop = Math.max(0, Math.min(rows.length - perPage, this.scrollTop + dir * perPage));
+            this.cursor = this.scrollTop;
+            this.redraw();
+          }, 8, 8);
+      };
+      page('▲', 128, -1);
+      page('▼', 112 + (perPage - 1) * 34, 1);
+    }
     const sel = rows[this.cursor];
     const footer = t.footer?.() ?? '';
     const desc = (sel as { desc?: string } | undefined)?.desc ?? '';
-    this.add2(this.add.text(x0 + 30, H - 130, fmt(footer || desc), { fontFamily: FONT, fontSize: '17px', color: '#cfd8ff', lineSpacing: 5, wordWrap: { width: w - 60, useAdvancedWrap: true } }));
+    const act = rows.length ? t.action(this.cursor) : null;
+    let btnW = 0;
+    if (act) btnW = this.actionButton(x0 + w - 24, H - 76, act.label, !!act.off, () => this.listPick()).width + 20;
+    this.add2(this.add.text(x0 + 30, H - 130, fmt(footer || desc), { fontFamily: FONT, fontSize: '17px', color: '#cfd8ff', lineSpacing: 5, wordWrap: { width: w - 60 - btnW, useAdvancedWrap: true } }));
   }
 
   private redraw(): void {
@@ -394,6 +452,13 @@ export class HUDScene extends Phaser.Scene {
           return { text: label(e) + count, sub: owned ? '持っている' : `${price(e)} 灯貨`, dim: owned, icon: iconFor(e), desc: desc(e) } as ListRow;
         }),
       footer: () => `所持金 ${session.data.coins} 灯貨　${msg}\n${desc(entries[this.cursor] ?? entries[0])}`,
+      action: (i) => {
+        const e = entries[i];
+        if (!e) return null;
+        if (e.kind === 'equip' && session.data.owned.includes(e.id)) return { label: '持っている', off: true };
+        if (e.kind === 'item' && session.data.items[e.id] >= CONSUMABLES[e.id].max) return { label: 'もう持てない', off: true };
+        return { label: `買う（${price(e)} 灯貨）` };
+      },
       onPick: (i) => {
         const e = entries[i];
         const r = buy(session.data, e.kind, e.id);
@@ -411,6 +476,7 @@ export class HUDScene extends Phaser.Scene {
       type: 'list',
       title: 'どの灯台へワープする？',
       build: () => rooms.map((r) => ({ text: ROOMS[r].name, sub: AREA_NAMES[ROOMS[r].area] ?? '', icon: IC.beacon })),
+      action: () => ({ label: 'ワープする' }),
       onPick: () => true,
       done: (i) => done(i === null || i === undefined ? null : rooms[i]),
     });
@@ -469,7 +535,7 @@ export class HUDScene extends Phaser.Scene {
               { text: `防御 ${defense(d)}`, icon: IC.armor },
               { text: `灯貨 ${d.coins}`, icon: IC.coin },
               { text: `プレイ時間 ${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` },
-              { text: `やさしいモード：${d.easy ? 'オン' : 'オフ'}（${byMode('Z', '2回タップ')}で切り替え）` },
+              { text: `やさしいモード：${d.easy ? 'オン' : 'オフ'}` },
             ];
           }
           case 4:
@@ -498,20 +564,35 @@ export class HUDScene extends Phaser.Scene {
       footer: () => {
         if (task.tab === 0) {
           const id = gear()[this.cursor];
-          return id ? `${EQUIPMENT[id].desc}\n${byMode('Z', '2回タップ')}で装備（お守りは2つまで）` : '';
+          return id ? `${EQUIPMENT[id].desc}\n${byMode('Z で装備', '「装備する」で装備')}（お守りは2つまで）` : '';
         }
         if (task.tab === 3) return `現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
         if (task.tab === 4) {
-          const how = byMode('Z', '2回タップ');
           return [
-            `${how}で切り替え。十字キーは上下・斜めも押せます`,
-            `${how}で切り替え（小・中・大・特大）`,
-            `${how}で切り替え（うすい・ふつう・こい）`,
-            `${how}で編集画面へ。ボタンやHP表示をドラッグで動かし、大きさも変えられます`,
-            `${how}でボタンとHP表示の位置・大きさを最初の状態に戻します`,
+            'スマホの移動ボタンを ◀ ▶ ボタンと十字キーで切り替えます。十字キーは上下・斜めも押せます',
+            'スマホのボタンの大きさ（小・中・大・特大）',
+            'スマホのボタンの濃さ（うすい・ふつう・こい）',
+            '編集画面で、ボタンやHP表示をドラッグで動かしたり、大きさを変えたりできます',
+            'ボタンとHP表示の位置・大きさを最初の状態に戻します',
           ][this.cursor] ?? '';
         }
         return '';
+      },
+      action: (i) => {
+        if (task.tab === 0) {
+          const id = gear()[i];
+          if (!id) return null;
+          const e = EQUIPMENT[id];
+          if (e.slot === 'charm') return { label: d.equip.charms.includes(id) ? '外す' : '装備する' };
+          return d.equip.sword === id || d.equip.armor === id ? { label: '装備中', off: true } : { label: '装備する' };
+        }
+        if (task.tab === 1) {
+          const s = SPELL_ORDER.filter((x) => d.abilities[x])[i - 5];
+          return s ? (d.spell === s ? { label: 'セット中', off: true } : { label: 'この魔法をセット' }) : null;
+        }
+        if (task.tab === 2) return i === 8 ? { label: d.easy ? 'オフにする' : 'オンにする' } : null;
+        if (task.tab === 4) return { label: ['切り替える', '変える', '変える', '編集する', '元に戻す'][i] };
+        return null;
       },
       onPick: (i) => {
         if (task.tab === 0) {
