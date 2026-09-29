@@ -39,8 +39,16 @@ export const NPCS: Record<string, NpcDef> = {
     name: '長老エルダ',
     look: 'elder',
     talk: async (g) => {
-      if (g.flag('ch5')) {
-        await g.say([{ who: '長老エルダ', text: '竜の炉へ行きなさい、リオ。皆の灯を連れて。' }]);
+      if (g.flag('boss_noxgiant')) {
+        await g.say([{ who: '長老エルダ', text: 'よう帰ったな、リオ。……ガレンも、きっと誇りに思っておる。' }]);
+      } else if (g.flag('ch6')) {
+        await g.say([{ who: '長老エルダ', text: '王都の東に黒い塔が立っておる。行きなさい、リオ。皆の灯と共に。' }]);
+      } else if (g.flag('boss_levia')) {
+        await g.say([{ who: '長老エルダ', text: '最後の欠片は竜の炉じゃ。湖底の門の、ひびの入った壁の奥にあるという。' }]);
+      } else if (g.flag('boss_tempest')) {
+        await g.say([{ who: '長老エルダ', text: '三つ目の欠片は深い水の底……ドルムの暗い扉の先、地底湖の向こうじゃ。' }]);
+      } else if (g.flag('boss_golem')) {
+        await g.say([{ who: '長老エルダ', text: '欠片をひとつ取り戻したか。次は風の高原の先、天の祠じゃな。ドルムの崖の上から行けるそうな。' }]);
       } else if (g.flag('prologueDone')) {
         await g.say([
           { who: '長老エルダ', text: '柄はお前を選んだ。ガレンの声が導いてくれよう。' },
@@ -54,7 +62,7 @@ export const NPCS: Record<string, NpcDef> = {
           { who: 'リオ', text: '師匠の灯が消える夢を見たんです。師匠は……？' },
           { who: '長老エルダ', text: 'ガレンは昨夜、ひとりで森へ向かったきり戻らん。' },
           { who: '長老エルダ', text: 'その見習いの剣を持っていきなさい。森には虚（ウロ）が出る。' },
-          { who: '長老エルダ', text: '敵を倒せば経験を積み、強くなれる。\n強くなるたびに、体・力・魔のどれを伸ばすか選ぶのじゃ。' },
+          { who: '長老エルダ', text: '敵を倒せば経験を積み、強くなれる。\n強くなるたびに、体力・攻撃力・魔力のどれを伸ばすか選ぶのじゃ。' },
         ]);
         g.setFlag('talkedElder');
       }
@@ -133,6 +141,8 @@ export const NPCS: Record<string, NpcDef> = {
   mina: {
     name: 'ミナ',
     look: 'mina',
+    // After the forge she is recovering in Haruna (see minaNight).
+    when: '!ch5',
     talk: async (g) => {
       const place = { dorm: 1, plateau3: 2, aqualia1: 3, forge1: 4 }[g.roomId] ?? 0;
       if (place) await minaMeeting(g, place);

@@ -1,4 +1,5 @@
 // NPCs for chapters 2-6.
+import { CH2_EVENTS } from './events2';
 import type { GameApi, NpcDef } from './types';
 
 const lever = (n: number, letter: string): NpcDef => ({
@@ -256,7 +257,11 @@ export const CH2_NPCS: Record<string, NpcDef> = {
     name: '長老エルダ',
     look: 'elder',
     talk: async (g) => {
-      await g.say('皆の灯を受け取ったなら、泉の前へ。……ガレンが待っておる。', '長老エルダ');
+      const go = await g.choose('心は決まったか？', ['行く。剣を打ち直す', 'もう少しだけ、みんなと話す']);
+      if (go === 0) {
+        await g.say('……よう言うた。ガレンも、お前の声を待っておる。', '長老エルダ');
+        await CH2_EVENTS.nightForge(g);
+      } else await g.say('ゆっくりでよい。夜はまだ長い。', '長老エルダ');
     },
   },
   villagerNight: {

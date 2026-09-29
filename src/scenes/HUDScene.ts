@@ -774,7 +774,7 @@ export class HUDScene extends Phaser.Scene {
     const roomArea = session.roomArea;
     const k = d.keys[roomArea] ?? 0;
     const bk = d.bossKeys.includes(roomArea);
-    this.texts.keys.setPosition(R - 20, py + 44).setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}  欠片 ${d.fragments}/4`);
+    this.texts.keys.setPosition(R - 20, py + 44).setText(`${k ? `鍵×${k}` : ''}${bk ? '  ボス鍵' : ''}${d.flags.prologueDone ? `  欠片 ${d.fragments}/4` : ''}`);
 
     // Selected spell.
     if (SPELL_ORDER.some((s) => d.abilities[s])) {

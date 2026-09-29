@@ -6,6 +6,7 @@ import { GameScene } from './scenes/GameScene';
 import { HUDScene } from './scenes/HUDScene';
 import { TitleScene } from './scenes/TitleScene';
 import { watchInputMode } from './inputMode';
+import { ROOMS } from './data/rooms/index';
 import { session } from './session';
 import { TouchOverlay } from './touchOverlay';
 
@@ -29,4 +30,4 @@ watchInputMode();
 new TouchOverlay(game);
 
 // Handy for debugging and automated smoke tests.
-Object.assign(window, { __game: game, __session: session });
+Object.assign(window, { __game: game, __session: session, __rooms: ROOMS });

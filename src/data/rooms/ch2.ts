@@ -78,7 +78,7 @@ export const CH2_ROOMS: RoomDef[] = [
     name: '天の祠・門前',
     links: { '1': { to: 'plateau2', at: '2' }, '2': { to: 'shrine1', at: '1', door: 'shrine' }, '3': { to: 'capital', at: '1' } },
     when: { '0,20': 'ch6' },
-    signs: ['天の祠\n――空に最も近い場所――', '← 王都ルミエ（今は霧に閉ざされている）'],
+    signs: ['天の祠\n――空に最も近い場所――', { when: 'ch6', text: '← 王都ルミエ', before: '← 王都ルミエ\n（霧が深く、今は通れない）' }],
     npcs: { M: 'mina', A: 'lever3' },
     rows: grid(50, 24, {
       8: row(50, { 49: '1' }),

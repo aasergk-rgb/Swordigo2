@@ -50,7 +50,11 @@ export const PROLOGUE_ROOMS: RoomDef[] = [
     links: { '1': { to: 'road1', at: '2' }, '2': { to: 'forest1', at: '1' } },
     when: { '0,13': 'prologueDone' },
     signs: [
-      '← 街道・鉱山町ドルム\n（森の奥で何が起きたか確かめるまでは、村を離れられない）',
+      {
+        when: 'prologueDone',
+        text: '← 街道・鉱山町ドルム',
+        before: '← 街道・鉱山町ドルム\n（森の奥で何が起きたか確かめるまでは、村を離れられない）',
+      },
       '→ ささやきの森\n虚（ウロ）に気をつけて。',
     ],
     npcs: { E: 'elder', O: 'merchantVillage', K: 'shepherd', H: 'smith' },

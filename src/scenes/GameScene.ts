@@ -11,6 +11,7 @@ import { Player } from '../entities/Player';
 import { Controls, controlsRef } from '../input';
 import { addExp, applyDeath, attackPower, coinGain, damageTaken, defense, giveEquipment, hasCharm, maxHp, swordDamage, takeKey, useEther, useHeal } from '../progress';
 import { EV, saveGame, session } from '../session';
+import { FONT } from '../ui';
 import { checkCond, type Marker, parseRoom, type ParsedRoom, TI, TILE } from '../world/parse';
 
 interface SceneData {
@@ -71,6 +72,12 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   private bossStarted = false;
   private hitstopUntil = 0;
   private busy = false; // dying or changing rooms
+  /** Seconds left in which water can't slow the hop out of a floor link's hole. */
+  private lift = 0;
+  // Rewards of the people's lights (chapter 5): slow healing, and allies in the last fight.
+  private regenT = 0;
+  private allyT = 2;
+  private allyTurn = 0;
   private scripting = 0; // running story scripts
   private lastSafe = new Phaser.Math.Vector2();
   private groundedTime = 0;
@@ -149,7 +156,10 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       return this.layer.getTileAtWorldXY(b.center.x, b.bottom + 2)?.index === TI.platform;
     };
     this.lastSafe.set(spawn.x, spawn.y);
-    if (spawn.vy) this.player.arcadeBody.setVelocityY(spawn.vy);
+    if (spawn.vy) {
+      this.player.arcadeBody.setVelocityY(spawn.vy);
+      this.lift = 0.5;
+    }
 
     this.physics.add.collider(this.player, this.layer, undefined, (_p, t) => {
       const tile = t as Phaser.Tilemaps.Tile;
@@ -398,7 +408,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
           break;
         }
         case 'S': {
-          const text = this.room.signs?.[signIndex++] ?? '';
+          const sign = this.room.signs?.[signIndex++] ?? '';
+          const text = typeof sign === 'string' ? sign : checkCond(sign.when, d.flags) ? sign.text : sign.before;
           this.interactables.push({ kind: 'sign', img: place('sign').setDepth(DEPTH.props), text });
           break;
         }
@@ -601,6 +612,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.handleCrumble(dt);
     if (this.scripting === 0) this.handleInteract();
     this.handleBoss();
+    this.handlePerks(dt);
     this.handleTriggers();
     if (this.scripting === 0) this.handleExits();
     this.updateWard();
@@ -615,7 +627,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       this.waterLine!.setY(ny);
     }
     const surf = this.waterRect ? this.waterRect.y : null;
-    p.inWater = surf !== null && p.arcadeBody.center.y > surf;
+    this.lift = Math.max(0, this.lift - dt);
+    p.inWater = surf !== null && p.arcadeBody.center.y > surf && this.lift === 0;
     if (this.waterLine) this.waterLine.setAlpha(0.5 + Math.sin(this.time.now / 300) * 0.2);
 
     p.wind.set(0, 0);
@@ -1225,6 +1238,38 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const b = boss as Boss;
     if (!this.bossStarted && !this.room.onEnter && Math.abs(this.player.x - boss.x) < 220 && this.time.now - this.entered > 600) this.startBoss();
     if (this.bossStarted) session.boss = { name: BOSS_TITLES[this.room.boss ?? ''] ?? b.title ?? '', hp: Math.max(0, boss.hp), max: boss.maxHp };
+  }
+
+  private handlePerks(dt: number): void {
+    const d = session.data;
+    // 8+ lights: HP slowly comes back, 1 every 5 seconds.
+    if (d.flags.regen && d.hp > 0 && d.hp < maxHp(d)) {
+      this.regenT += dt;
+      if (this.regenT >= 5) {
+        this.regenT = 0;
+        d.hp += 1;
+      }
+    } else this.regenT = 0;
+    // 12 lights: Mina (from the village) and Kai send light at the shadow king.
+    const boss = this.boss;
+    if (!d.flags.allies || this.room.boss !== 'noxgiant' || !this.bossStarted || !boss || boss.dead) return;
+    this.allyT -= dt;
+    if (this.allyT > 0) return;
+    this.allyT = 4;
+    this.allyTurn += 1;
+    const mina = this.allyTurn % 2 === 1;
+    const view = this.cameras.main.worldView;
+    // From the screen edges at mid-height, clear of the HUD in the corners.
+    const x = mina ? view.x + 16 : view.right - 16;
+    const y = view.y + view.height * 0.45;
+    const len = Math.hypot(boss.x - x, boss.y - y) || 1;
+    this.burst(x, y, mina ? 0x9fe6ff : 0xfff3a0, 8);
+    this.fire(x, y, ((boss.x - x) / len) * 300, ((boss.y - y) / len) * 300, 4 + d.mag, 'p_bolt', 'player');
+    const tag = this.add
+      .text(x, y + 6, mina ? 'ミナ' : 'カイ', { fontFamily: FONT, fontSize: '8px', color: mina ? '#9fe6ff' : '#fff3a0', stroke: '#000', strokeThickness: 2, resolution: 2 })
+      .setOrigin(mina ? 0 : 1, 0)
+      .setDepth(DEPTH.fx);
+    this.tweens.add({ targets: tag, y: y - 6, alpha: 0, delay: 500, duration: 700, onComplete: () => tag.destroy() });
   }
 
   private handleTriggers(): void {

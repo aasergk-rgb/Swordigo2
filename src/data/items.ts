@@ -45,9 +45,9 @@ export interface Consumable {
 }
 
 export const CONSUMABLES: Record<Consumable['id'], Consumable> = {
-  potion: { id: 'potion', name: '灯の雫', desc: 'HP を 5 回復（Q）', max: 5, price: 40 },
-  bigPotion: { id: 'bigPotion', name: '大きな灯の雫', desc: 'HP を全回復（Q）', max: 3, price: 200 },
-  ether: { id: 'ether', name: '星の粉', desc: 'MP を全回復（E）', max: 3, price: 120 },
+  potion: { id: 'potion', name: '灯の雫', desc: 'HP を 5 回復（{heal}）', max: 5, price: 40 },
+  bigPotion: { id: 'bigPotion', name: '大きな灯の雫', desc: 'HP を全回復（{heal}）', max: 3, price: 200 },
+  ether: { id: 'ether', name: '星の粉', desc: 'MP を全回復（{ether}）', max: 3, price: 120 },
 };
 
 export type ShopEntry = { kind: 'equip'; id: string } | { kind: 'item'; id: Consumable['id'] };

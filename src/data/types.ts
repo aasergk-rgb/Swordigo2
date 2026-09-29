@@ -32,7 +32,8 @@ export interface RoomDef {
   bg: string;
   rows: string[];
   links: Record<string, Link>;
-  signs?: string[];
+  /** Sign texts in reading order; a sign can change once a flag condition holds. */
+  signs?: (string | { when: string; text: string; before: string })[];
   npcs?: Record<string, string>;
   /** Contents of `i` chests, in reading order. */
   items?: string[];

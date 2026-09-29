@@ -208,7 +208,9 @@ export const CH2_EVENTS: Record<string, Ev> = {
 
   // ---------------------------------------------------------------- chapter 5
   nightEnter: async (g) => {
-    if (g.flag('ch6')) return;
+    // Waking up in the night village. The forging starts when Rio talks to the elder
+    // (nightForge), so there is time to talk to Mina and the villagers first.
+    if (g.flag('ch6') || g.flag('nightWoke')) return;
     await g.wait(600);
     await g.say([
       { text: '――気がつくと、リオはハルナ村の泉のそばに寝かされていた。夜空には星が瞬いている。' },
@@ -218,6 +220,14 @@ export const CH2_EVENTS: Record<string, Ev> = {
       { who: '長老エルダ', text: 'ガレンは剣を振り上げ……そして、赤ん坊を斬れなかった。' },
       { who: '長老エルダ', text: '代わりに剣を四つに割り、ノクスが力を取り戻せぬようにした。そして、その子を育てた。……お前じゃ、リオ。' },
       { who: 'リオ', text: '……師匠は、ずっと知ってて……ぼくを……' },
+      { who: '長老エルダ', text: '皆に顔を見せてやりなさい。心が決まったら、わしのところへ来るのじゃ。' },
+    ]);
+    g.setFlag('nightWoke');
+    g.toast('心が決まったら、長老エルダに話しかけよう');
+  },
+
+  nightForge: async (g) => {
+    await g.say([
       { who: 'ガレンの声', text: '……リオ。' },
       { who: 'ガレンの声', text: 'お前を斬れなかったこと、一度も後悔したことはない。' },
       { who: 'ガレンの声', text: 'ルミナブレードは、鉄で打つ剣ではない。人の灯で打つ剣だ。' },
