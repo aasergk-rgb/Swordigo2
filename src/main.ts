@@ -26,7 +26,7 @@ const game = new Phaser.Game({
 });
 
 watchInputMode();
-const touchOverlay = new TouchOverlay(game);
+new TouchOverlay(game);
 
 // Handy for debugging and automated smoke tests.
-Object.assign(window, { __game: game, __session: session, __touch: touchOverlay });
+Object.assign(window, { __game: game, __session: session });
