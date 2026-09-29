@@ -190,9 +190,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
 
     const cam = this.cameras.main;
     cam.setZoom(RENDER_SCALE);
-    // A room narrower than the view (only on very wide phones) is centred rather than pinned left.
-    const padX = Math.max(0, VIEW_W - w) / 2;
-    cam.setBounds(-padX, 0, w + padX * 2, h);
+    this.fitCamera();
     cam.startFollow(this.player, true, 0.15, 0.15, 0, 10);
     cam.setDeadzone(40, 30);
     cam.setRoundPixels(true);
@@ -205,6 +203,32 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.input.keyboard!.on('keydown-F1', () => this.debugUnlock());
 
     if (this.room.onEnter) this.time.delayedCall(250, () => this.runEvent(this.room.onEnter!));
+  }
+
+  /** Camera size and bounds for the current view size. */
+  private fitCamera(): void {
+    const cam = this.cameras.main;
+    cam.setSize(this.scale.width, this.scale.height);
+    // A room narrower than the view (only on very wide screens) is centred rather than pinned left.
+    const padX = Math.max(0, VIEW_W - this.roomW) / 2;
+    cam.setBounds(-padX, 0, this.roomW + padX * 2, this.roomH);
+  }
+
+  /** Rebuilds what depends on the view size after the window changed shape. */
+  relayout(): void {
+    this.fitCamera();
+    for (const l of this.bgLayers) l.img.destroy();
+    this.bgLayers = [];
+    this.buildBackground();
+    this.updateBackground();
+    if (this.darkRT) {
+      this.darkRT.destroy();
+      this.darkRT = this.makeDarkRT();
+    }
+  }
+
+  private makeDarkRT(): Phaser.GameObjects.RenderTexture {
+    return this.add.renderTexture(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.dark);
   }
 
   get roomW(): number {
@@ -296,7 +320,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       this.lavaRect = this.add.rectangle(0, this.lavaY, this.roomW, this.roomH, 0xd8401a, 0.92).setOrigin(0).setDepth(DEPTH.water);
     }
     if (this.room.dark) {
-      this.darkRT = this.add.renderTexture(VIEW_W / 2, VIEW_H / 2, VIEW_W, VIEW_H).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.dark);
+      this.darkRT = this.makeDarkRT();
       this.lightSources.push({ x: () => this.player.x, y: () => this.player.y - 4, r: hasCharm(session.data, 'firefly') ? 150 : 90 });
     }
     this.buildParticles();

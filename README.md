@@ -52,7 +52,7 @@ npm run apk   # → android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 - 横画面固定・全画面（ステータスバーとナビゲーションバーを隠し、カメラの切り欠き部分まで使う）。
-- 画面の縦横比に合わせて見える範囲を横に広げる（480〜640px）ので、黒い余白が出ません。
+- 画面（ウィンドウ）の形に合わせて見える範囲を変えるので、どの端末でも黒い余白が出ません（Web 版も同じ）。
 - 署名鍵 `android/app/debug.keystore` を固定しているので、新しい APK をそのまま上書きインストールでき、セーブも残ります。
 
 ### iPad版（Swift Playgrounds）
@@ -64,7 +64,7 @@ npm run ios   # dist/ を作って ios/Luminablade.swiftpm/Web/ にコピー
 ```
 
 - `Luminablade.swiftpm` フォルダごと iPad に送り（iCloud Drive など）、Swift Playgrounds で開いて ▶ で遊べます。
-- 画面の形に合わせて見える範囲を変える（4:3 の iPad では 360px）ので、黒い余白が出ません。
+- ウィンドウの形に合わせて見える範囲を変えるので、ステージマネージャのウィンドウでも黒い余白が出ません。縦長のときは「横にしてください」と表示します。
 - セーブは iPad 側（UserDefaults）にも保存します。
 
 開発サーバーで `/art.html` を開くと、コードで描いたドット絵を一覧できます。

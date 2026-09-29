@@ -24,11 +24,13 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(0, 0, W, H, 0x000000, 0.25).setOrigin(0).setDepth(3);
     this.add.particles(0, 0, 'dot', { x: { min: 0, max: W }, y: H, lifespan: 6000, speedY: { min: -40, max: -15 }, speedX: { min: -8, max: 8 }, scale: 2, alpha: { start: 0.8, end: 0 }, tint: 0xfff3a0, frequency: 120, blendMode: 'ADD' }).setDepth(4);
 
-    const glow = this.add.image(W / 2, 140, 'light_warm').setScale(3.2, 1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
+    // Laid out for 540 high; shorter (very wide) windows squeeze the gaps.
+    const k = H / 540;
+    const glow = this.add.image(W / 2, 140 * k, 'light_warm').setScale(3.2, 1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
     this.tweens.add({ targets: glow, alpha: 0.25, yoyo: true, repeat: -1, duration: 1800 });
-    this.add.text(W / 2, 130, 'ルミナブレード', { fontFamily: FONT, fontSize: '68px', color: '#fff3a0', stroke: '#3a2a10', strokeThickness: 10 }).setOrigin(0.5).setDepth(6);
-    this.add.text(W / 2, 200, '― 灯火の剣 ―', { fontFamily: FONT, fontSize: '26px', color: '#ffffff', stroke: '#1a1030', strokeThickness: 5 }).setOrigin(0.5).setDepth(6);
-    const rio = this.add.sprite(W / 2, 330, 'rio', 0).setScale(4).setDepth(6);
+    this.add.text(W / 2, 130 * k, 'ルミナブレード', { fontFamily: FONT, fontSize: '68px', color: '#fff3a0', stroke: '#3a2a10', strokeThickness: 10 }).setOrigin(0.5).setDepth(6);
+    this.add.text(W / 2, 200 * k, '― 灯火の剣 ―', { fontFamily: FONT, fontSize: '26px', color: '#ffffff', stroke: '#1a1030', strokeThickness: 5 }).setOrigin(0.5).setDepth(6);
+    const rio = this.add.sprite(W / 2, 330 * k, 'rio', 0).setScale(4 * Math.min(1, k * 1.1)).setDepth(6);
     rio.play('rio_idle');
 
     const save = loadGame();
@@ -53,14 +55,14 @@ export class TitleScene extends Phaser.Scene {
     let cursor = 0;
     const texts = items.map((it, i) =>
       this.add
-        .text(W / 2, 410 + i * 44, it.label, { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#000', strokeThickness: 5 })
+        .text(W / 2, (410 + i * 44) * k, it.label, { fontFamily: FONT, fontSize: '28px', color: '#ffffff', stroke: '#000', strokeThickness: 5 })
         .setOrigin(0.5)
         .setDepth(6),
     );
     // Wide tap zones, so a finger doesn't have to land on the letters.
     items.forEach((it, i) =>
       this.add
-        .zone(W / 2, 410 + i * 44, 380, 44)
+        .zone(W / 2, (410 + i * 44) * k, 380, 44 * k)
         .setDepth(7)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => it.run()),

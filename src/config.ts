@@ -1,31 +1,47 @@
 // Tunable numbers. Values follow docs/03_game_system.md (all provisional).
 
 export const TILE = 16;
-export const VIEW_H = 270;
-/** Widest view; the rare room narrower than the view is centred in it. */
+// The view (world pixels on screen) takes the window's shape so the game always fills it:
+// 270 high, as wide as the window allows up to 640; wider windows show a little less height,
+// narrower (4:3, square-ish) ones less width. Rooms are at least 272 high and 576 wide.
+const VIEW_H_FULL = 270;
+const VIEW_H_MIN = 200;
 const VIEW_W_MAX = 640;
-/** Narrowest view (4:3 tablets). */
-const VIEW_W_MIN = 360;
+const VIEW_W_MIN = 270;
 
-/** True inside the Android (Capacitor) or iPad (Swift Playgrounds) app rather than a browser. */
-export function inNativeApp(): boolean {
-  if (typeof window === 'undefined') return false;
-  const w = window as { Capacitor?: { isNativePlatform?: () => boolean }; __nativeApp?: string };
-  return !!w.__nativeApp || !!w.Capacitor?.isNativePlatform?.();
+export interface ViewSize {
+  w: number;
+  h: number;
 }
 
-/**
- * 480 (16:9) on the web. In the apps the view takes the screen's own shape — wider on long
- * phones, narrower on tablets — so the game fills the whole screen with no black bars.
- */
-function viewWidth(): number {
-  if (!inNativeApp()) return 480;
-  const long = Math.max(screen.width, screen.height);
-  const short = Math.min(screen.width, screen.height);
-  return Math.min(VIEW_W_MAX, Math.max(VIEW_W_MIN, Math.round((VIEW_H * long) / short / 2) * 2));
+/** View size for a window; a portrait window is sized as if turned sideways. */
+export function viewFor(width: number, height: number): ViewSize {
+  if (!width || !height) return { w: 480, h: VIEW_H_FULL };
+  const aspect = Math.max(width, height) / Math.min(width, height);
+  const even = (n: number) => Math.round(n / 2) * 2;
+  let w = even(VIEW_H_FULL * aspect);
+  let h = VIEW_H_FULL;
+  if (w > VIEW_W_MAX) {
+    w = VIEW_W_MAX;
+    h = Math.max(VIEW_H_MIN, even(VIEW_W_MAX / aspect));
+  }
+  return { w: Math.max(VIEW_W_MIN, w), h };
 }
 
-export const VIEW_W = viewWidth();
+// Live bindings: importers see the new size after setView().
+export let VIEW_W = 480;
+export let VIEW_H = VIEW_H_FULL;
+
+export function setView(v: ViewSize): void {
+  VIEW_W = v.w;
+  VIEW_H = v.h;
+}
+
+if (typeof window !== 'undefined') {
+  const scr = typeof screen === 'undefined' ? undefined : screen;
+  setView(viewFor(window.innerWidth || scr?.width || 0, window.innerHeight || scr?.height || 0));
+}
+
 /** The canvas is rendered at 2x so UI text stays sharp; the world camera zooms back in. */
 export const RENDER_SCALE = 2;
 

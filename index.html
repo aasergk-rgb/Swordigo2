@@ -7,6 +7,14 @@
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; }
       #game { width: 100%; height: 100%; }
+      #rotate { position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+        background: radial-gradient(circle at 50% 40%, #2a1e52, #0d0b1e); color: #ffe8b0; text-align: center;
+        font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; }
+      #rotate.on { display: flex; }
+      #rotate p { margin: 0; font-size: 22px; font-weight: bold; }
+      #rotate small { color: #cfd8ff; }
+      #rotate .phone { width: 46px; height: 80px; border: 4px solid #c9a44a; border-radius: 10px; box-shadow: 0 0 18px #ffc85066; animation: turn 2.2s ease-in-out infinite; }
+      @keyframes turn { 0%, 25% { transform: rotate(0deg); } 55%, 100% { transform: rotate(-90deg); } }
     </style>
   </head>
   <body>

@@ -272,9 +272,11 @@ export class HUDScene extends Phaser.Scene {
     this.add2(this.add.text(W / 2, H - 90, byMode('← → で選んで Z で決定', '伸ばしたい力をタップして「決定」'), { fontFamily: FONT, fontSize: '18px', color: '#dddddd' }).setOrigin(0.5));
     if (inputMode.current === 'touch') this.actionButton(W - 40, H - 30, '決定', false, () => this.pickStat());
     CHOICES.forEach((c, i) => {
-      const x = W / 2 + (i - 1) * 230;
+      // Three cards side by side, narrower on narrow screens.
+      const step = Math.min(230, (W - 40) / 3);
+      const x = W / 2 + (i - 1) * step;
       const on = i === this.cursor;
-      const box = this.add2(this.add.rectangle(x, H / 2 + 10, 200, 190, 0x1a1a33).setStrokeStyle(on ? 5 : 3, on ? 0xfff3a0 : 0x666688));
+      const box = this.add2(this.add.rectangle(x, H / 2 + 10, step - 30, 190, 0x1a1a33).setStrokeStyle(on ? 5 : 3, on ? 0xfff3a0 : 0x666688));
       this.add2(this.add.text(x, H / 2 - 40, c.label, { fontFamily: FONT, fontSize: '32px', color: '#ffffff' }).setOrigin(0.5));
       this.add2(this.add.text(x, H / 2 + 30, c.desc, { fontFamily: FONT, fontSize: '20px', color: '#cfe0ff', align: 'center' }).setOrigin(0.5));
       box.setInteractive().on('pointerdown', () => {
@@ -304,12 +306,13 @@ export class HUDScene extends Phaser.Scene {
     this.panel.setVisible(true);
     const h = 70 + t.options.length * 40;
     const y = 150;
-    this.frame(W / 2 - 260, y, 520, h);
+    const fw = Math.min(520, W - 40);
+    this.frame(W / 2 - fw / 2, y, fw, h);
     this.add2(this.add.text(W / 2, y + 20, t.question, { fontFamily: FONT, fontSize: '22px', color: '#ffd98a', align: 'center' }).setOrigin(0.5, 0));
     t.options.forEach((o, i) => {
       const oy = y + 64 + i * 40;
       const on = i === this.cursor;
-      const row = this.add2(this.add.rectangle(W / 2, oy + 14, 480, 36, on ? 0x2a2a5a : 0x000000, on ? 1 : 0.001));
+      const row = this.add2(this.add.rectangle(W / 2, oy + 14, fw - 40, 36, on ? 0x2a2a5a : 0x000000, on ? 1 : 0.001));
       this.add2(this.add.text(W / 2, oy, (on ? '▶ ' : '   ') + o, { fontFamily: FONT, fontSize: '22px', color: on ? '#ffffff' : '#9aa3c0' }).setOrigin(0.5, 0));
       // The whole row is the button.
       row.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
@@ -325,12 +328,13 @@ export class HUDScene extends Phaser.Scene {
     const H = this.scale.height;
     this.panel.setVisible(true);
     this.shade(0.45);
-    this.frame(W / 2 - 300, H / 2 - 90, 600, 180);
+    const bw = Math.min(600, W - 40);
+    this.frame(W / 2 - bw / 2, H / 2 - 90, bw, 180);
     const glow = this.add2(this.add.image(W / 2, H / 2 - 40, 'light_warm').setScale(1.4).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD));
     this.tweens.add({ targets: glow, alpha: 0.2, yoyo: true, repeat: -1, duration: 700 });
     this.add2(this.add.text(W / 2, H / 2 - 50, t.title, { fontFamily: FONT, fontSize: '32px', color: '#fff3a0', stroke: '#3a2a10', strokeThickness: 5 }).setOrigin(0.5));
-    this.add2(this.add.text(W / 2, H / 2 + 20, fmt(t.sub), { fontFamily: FONT, fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6, wordWrap: { width: 560, useAdvancedWrap: true } }).setOrigin(0.5, 0.5));
-    this.add2(this.add.text(W / 2 + 280, H / 2 + 70, '▼', { fontFamily: FONT, fontSize: '16px', color: '#ffffff' }).setOrigin(1, 0.5));
+    this.add2(this.add.text(W / 2, H / 2 + 20, fmt(t.sub), { fontFamily: FONT, fontSize: '20px', color: '#ffffff', align: 'center', lineSpacing: 6, wordWrap: { width: bw - 40, useAdvancedWrap: true } }).setOrigin(0.5, 0.5));
+    this.add2(this.add.text(W / 2 + bw / 2 - 20, H / 2 + 70, '▼', { fontFamily: FONT, fontSize: '16px', color: '#ffffff' }).setOrigin(1, 0.5));
     this.add2(this.add.rectangle(0, 0, W, H, 0, 0).setOrigin(0).setInteractive().on('pointerdown', () => this.time.now - this.openedAt > 300 && this.next()));
   }
 
@@ -364,7 +368,8 @@ export class HUDScene extends Phaser.Scene {
       this.add2(this.add.text(x0 + w - 70, 70, byMode('↑↓ 選択  Z 決定  X 閉じる', '選んで右下のボタンで決定'), { fontFamily: FONT, fontSize: '14px', color: '#9aa3c0' }).setOrigin(1, 0));
     }
     const rows = t.build();
-    const perPage = 9;
+    // As many rows as fit above the description (9 at full height).
+    const perPage = Math.max(4, Math.floor((H - 262) / 34) + 1);
     const more = rows.length > perPage;
     if (this.cursor >= rows.length) this.cursor = Math.max(0, rows.length - 1);
     if (this.cursor < this.scrollTop) this.scrollTop = this.cursor;
@@ -788,7 +793,7 @@ export class HUDScene extends Phaser.Scene {
     const boss = session.boss;
     if (boss) {
       const H = this.scale.height;
-      const bw = 560;
+      const bw = Math.min(560, W - 80);
       const x = (W - bw) / 2;
       const y = H - 48;
       g.fillStyle(0x220a0a).fillRect(x, y, bw, 16);
