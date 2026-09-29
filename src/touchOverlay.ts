@@ -1,13 +1,23 @@
 // On-screen touch controls, drawn as an HTML layer over the whole phone screen (not just
 // the game canvas), so they sit at the very edges — in the black bars beside the game on
 // wide phones. Every finger that started on a control is tracked, so a thumb can slide
-// across the D-pad or onto another button without lifting.
+// onto another button without lifting. The D-pad floats: touching anywhere in the lower
+// left of the screen puts its centre under the thumb, and the direction comes from how
+// far the thumb has moved from there.
 import type Phaser from 'phaser';
 import { IC, ICON } from './art/icons';
 import { SPELL_ORDER } from './data/items';
 import { inputMode, onInputMode } from './inputMode';
 import { session, type ButtonName } from './session';
 import { FONT } from './ui';
+
+interface Finger {
+  x: number;
+  y: number;
+  /** Set for a finger that started in the D-pad zone: the floating centre. */
+  ox?: number;
+  oy?: number;
+}
 
 interface Ctl {
   el: HTMLDivElement;
@@ -30,7 +40,13 @@ const CSS = `
 #touch .ctl.hidden { display: none; }
 #touch .icon { width: 44%; height: 44%; background-size: cover; image-rendering: pixelated; }
 #touch .count { position: absolute; right: 8%; bottom: 6%; font-size: 3.2vh; }
-#touch .dpad { border-radius: 50%; }
+#touch .dpad-zone { border-radius: 0; background: none; border: none; }
+#touch .dpad { pointer-events: none; border-radius: 50%; }
+#touch .dpad.held { background: rgba(0,0,0,0.38); }
+#touch .knob { position: absolute; left: 50%; top: 50%; width: 36%; height: 36%; border-radius: 50%;
+  background: rgba(255,255,255,0.4); border: 3px solid rgba(255,255,255,0.7); box-sizing: border-box;
+  transform: translate(-50%, -50%); display: none; }
+#touch .dpad.held .knob { display: block; }
 #touch .arrow { position: absolute; font-size: 6.5vh; opacity: 0.6; line-height: 1; transform: translate(-50%, -50%); }
 #touch .arrow.on { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
 #touch .context { border-radius: 999px; background: rgba(255,243,160,0.93); border-color: rgba(58,42,16,0.8);
@@ -41,9 +57,9 @@ const CSS = `
 export class TouchOverlay {
   private root: HTMLDivElement;
   private ctls: Ctl[] = [];
-  private dpad!: { el: HTMLDivElement; arrows: Record<'left' | 'right' | 'up' | 'down', HTMLSpanElement> };
-  /** Fingers that started on a control: identifier → position. */
-  private fingers = new Map<number, { x: number; y: number }>();
+  private dpad!: { el: HTMLDivElement; zone: HTMLDivElement; knob: HTMLDivElement; arrows: Record<'left' | 'right' | 'up' | 'down', HTMLSpanElement> };
+  /** Fingers that started on a control: identifier → position (and the D-pad centre for the steering finger). */
+  private fingers = new Map<number, Finger>();
   private iconUrls: Record<number, string> = {};
 
   constructor(private game: Phaser.Game) {
@@ -58,11 +74,17 @@ export class TouchOverlay {
     const track = (e: TouchEvent) => {
       let mine = false;
       for (const t of Array.from(e.changedTouches)) {
+        const f = this.fingers.get(t.identifier);
         if (e.type === 'touchstart') {
-          if (this.ctls.some((c) => c.el.contains(t.target as Node))) this.fingers.set(t.identifier, { x: t.clientX, y: t.clientY });
-        } else if (this.fingers.has(t.identifier)) {
-          if (e.type === 'touchmove') this.fingers.set(t.identifier, { x: t.clientX, y: t.clientY });
-          else this.fingers.delete(t.identifier);
+          const ctl = this.ctls.find((c) => c.el.contains(t.target as Node));
+          if (!ctl) continue;
+          const steering = ctl.btn === 'dpad' && ![...this.fingers.values()].some((o) => o.ox !== undefined);
+          this.fingers.set(t.identifier, steering ? { x: t.clientX, y: t.clientY, ox: t.clientX, oy: t.clientY } : { x: t.clientX, y: t.clientY });
+        } else if (f) {
+          if (e.type === 'touchmove') {
+            f.x = t.clientX;
+            f.y = t.clientY;
+          } else this.fingers.delete(t.identifier);
         } else continue;
         mine = true;
       }
@@ -98,8 +120,15 @@ export class TouchOverlay {
       this.root.appendChild(el);
       return el;
     };
-    // D-pad: bottom-left corner of the phone screen.
+    // D-pad zone: the lower-left part of the screen. A touch anywhere in it becomes the
+    // centre of the D-pad. Later controls are stacked above it, so they win where they overlap.
+    const zone = mk('dpad-zone', { left: '0', bottom: '0', width: '42vw', height: '80vh' });
+    this.ctls.push({ el: zone, btn: 'dpad', visible: () => true });
+    // The visible D-pad rests in the bottom-left corner and jumps under the thumb while held.
     const dpadEl = mk('dpad', { left: '2vw', bottom: '5vh', width: '46vh', height: '46vh' });
+    const knob = document.createElement('div');
+    knob.className = 'knob';
+    dpadEl.appendChild(knob);
     const arrow = (s: string, x: string, y: string) => {
       const a = document.createElement('span');
       a.className = 'arrow';
@@ -108,8 +137,7 @@ export class TouchOverlay {
       dpadEl.appendChild(a);
       return a;
     };
-    this.dpad = { el: dpadEl, arrows: { left: arrow('◀', '20%', '50%'), right: arrow('▶', '80%', '50%'), up: arrow('▲', '50%', '20%'), down: arrow('▼', '50%', '80%') } };
-    this.ctls.push({ el: dpadEl, btn: 'dpad', visible: () => true });
+    this.dpad = { el: dpadEl, zone, knob, arrows: { left: arrow('◀', '20%', '50%'), right: arrow('▶', '80%', '50%'), up: arrow('▲', '50%', '20%'), down: arrow('▼', '50%', '80%') } };
 
     const d = () => session.data;
     const spells = () => SPELL_ORDER.filter((s) => d().abilities[s]).length;
@@ -163,20 +191,32 @@ export class TouchOverlay {
 
   private recompute(): void {
     const t: Partial<Record<ButtonName, boolean>> = {};
+    let steer: Finger | undefined;
     if (!session.uiBlocking) {
-      const pad = this.dpad.el.getBoundingClientRect();
-      for (const { x, y } of this.fingers.values()) {
-        const cx = pad.left + pad.width / 2;
-        const cy = pad.top + pad.height / 2;
-        const r = pad.width / 2;
-        const dx = x - cx;
-        const dy = y - cy;
-        if (Math.hypot(dx, dy) < r * 1.3) {
-          const dead = r * 0.25;
-          if (dx < -dead) t.left = true;
-          if (dx > dead) t.right = true;
-          if (dy < -dead * 1.4) t.up = true;
-          if (dy > dead * 1.4) t.down = true;
+      const vh = window.innerHeight / 100;
+      for (const f of this.fingers.values()) {
+        const { x, y } = f;
+        if (f.ox !== undefined && f.oy !== undefined) {
+          steer = f;
+          let dx = x - f.ox;
+          let dy = y - f.oy;
+          let dist = Math.hypot(dx, dy);
+          // Dragging past the rim pulls the centre along, so reversing is always a short move.
+          const rim = 14 * vh;
+          if (dist > rim) {
+            f.ox = x - (dx / dist) * rim;
+            f.oy = y - (dy / dist) * rim;
+            dx = x - f.ox;
+            dy = y - f.oy;
+            dist = rim;
+          }
+          if (dist > 3.5 * vh) {
+            // 8 directions; up/down need a steeper angle so running never talks to people by accident.
+            if (dx < -dist * 0.38) t.left = true;
+            if (dx > dist * 0.38) t.right = true;
+            if (dy < -dist * 0.5) t.up = true;
+            if (dy > dist * 0.5) t.down = true;
+          }
           continue;
         }
         for (const c of this.ctls) {
@@ -190,6 +230,22 @@ export class TouchOverlay {
       }
     }
     session.touch = t;
+    this.placeDpad(steer);
+  }
+
+  /** Moves the visible D-pad under the steering thumb, or back to its corner. */
+  private placeDpad(f?: Finger): void {
+    const el = this.dpad.el;
+    el.classList.toggle('held', !!f);
+    if (!f || f.ox === undefined || f.oy === undefined) {
+      el.style.transform = '';
+      this.dpad.knob.style.transform = '';
+      return;
+    }
+    el.style.transform = '';
+    const rest = el.getBoundingClientRect();
+    el.style.transform = `translate(${f.ox - (rest.left + rest.width / 2)}px, ${f.oy - (rest.top + rest.height / 2)}px)`;
+    this.dpad.knob.style.transform = `translate(calc(-50% + ${f.x - f.ox}px), calc(-50% + ${f.y - f.oy}px))`;
   }
 
   private update(): void {
