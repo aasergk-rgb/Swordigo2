@@ -170,7 +170,8 @@ export abstract class Enemy extends Phaser.Physics.Arcade.Sprite {
   protected distToPlayer(): { dx: number; dy: number; d: number } {
     const dx = this.world.player.x - this.x;
     const dy = this.world.player.y - this.y;
-    return { dx, dy, d: Math.hypot(dx, dy) };
+    // Never 0: aimed shots divide by it.
+    return { dx, dy, d: Math.hypot(dx, dy) || 1 };
   }
 
   /** True when there is floor ahead (so walkers don't march off ledges). */
@@ -423,7 +424,8 @@ export class Soldier extends Enemy {
   }
 
   strikeRect(): Phaser.Geom.Rectangle | null {
-    if (this.mode !== 'strike' || this.timer < 0.12) return null;
+    // A flinching soldier's swing is interrupted.
+    if (this.mode !== 'strike' || this.timer < 0.12 || this.stun > 0) return null;
     const b = this.arcadeBody;
     const x = this.facing > 0 ? b.right : b.left - 20;
     return new Phaser.Geom.Rectangle(x, b.top, 20, b.height);

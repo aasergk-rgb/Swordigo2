@@ -138,7 +138,8 @@ export class HUDScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
-        if (!this.current && !session.uiBlocking) this.openMenu(2);
+        // Not during story scenes: "save and quit" there could lose a boss's reward for good.
+        if (!this.current && !session.uiBlocking && !session.cutscene) this.openMenu(2);
       });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       session.touch = {};

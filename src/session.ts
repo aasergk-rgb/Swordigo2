@@ -20,6 +20,8 @@ export const session = {
   boss: null as BossBar | null,
   /** True while a dialog or menu has the focus; the world is frozen. */
   uiBlocking: false,
+  /** True while a story scene runs or the room is changing: the menu must not open then. */
+  cutscene: false,
   /** Name of the current area, shown on the map. */
   roomName: '',
   roomArea: '',

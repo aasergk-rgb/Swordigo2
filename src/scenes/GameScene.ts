@@ -79,6 +79,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   private allyT = 2;
   private allyTurn = 0;
   private scripting = 0; // running story scripts
+  /** From a boss's fall until its story scene ends: nothing may kill Rio in between. */
+  private outro = false;
   private lastSafe = new Phaser.Math.Vector2();
   private groundedTime = 0;
   private triggered = new Set<number>();
@@ -114,6 +116,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.bossStarted = false;
     this.busy = false;
     this.scripting = 0;
+    this.outro = false;
     this.generation++;
     this.hitstopUntil = 0;
     this.darkRT = null;
@@ -123,6 +126,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.entered = this.time.now;
     session.boss = null;
     session.uiBlocking = false;
+    session.cutscene = false;
     session.interactHint = null;
     session.roomName = this.room.name;
     session.roomArea = this.room.area;
@@ -205,7 +209,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.game.events.on(EV.toTitle, toTitle);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off(EV.toTitle, toTitle));
 
-    if (this.room.onEnter) this.time.delayedCall(250, () => this.runEvent(this.room.onEnter!));
+    if (this.room.onEnter) this.time.delayedCall(250, () => void this.runEvent(this.room.onEnter!));
   }
 
   /** Camera size and bounds for the current view size. */
@@ -599,6 +603,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   update(time: number, delta: number): void {
     const dt = Math.min(delta, 50) / 1000;
     this.controls.update();
+    session.cutscene = this.scripting > 0 || this.busy;
     this.updateBackground();
     this.updateLighting();
 
@@ -856,7 +861,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     }
 
     // The Luminablade's charged slash sends a wave of light.
-    if (a.kind === 'charge' && a.t < 0.08 && d.equip.sword === 'luminablade' && d.flags.bladeWave && !(a as { waved?: boolean }).waved) {
+    if (a.kind === 'charge' && d.equip.sword === 'luminablade' && d.flags.bladeWave && !(a as { waved?: boolean }).waved) {
       (a as { waved?: boolean }).waved = true;
       this.fire(p.x + p.facing * 14, p.y - 2, p.facing * 320, 0, attackPower(d) * 2, 'p_bolt', 'player', { pierce: true }).setScale(2, 1.2);
     }
@@ -1063,7 +1068,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
   private hazardHit(dmg: number): void {
     const d = session.data;
     if (this.busy) return;
-    d.hp -= this.room.lava || dmg > 1 ? damageTaken(dmg, 0, d) : 1;
+    if (!this.outro) d.hp -= this.room.lava || dmg > 1 ? damageTaken(dmg, 0, d) : 1;
     this.shake(120, 0.01);
     if (d.hp <= 0) {
       this.die();
@@ -1308,7 +1313,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       if (this.triggered.has(i)) return;
       if (this.player.x >= tr.col * TILE) {
         this.triggered.add(i);
-        this.runEvent(tr.event);
+        void this.runEvent(tr.event);
       }
     });
   }
@@ -1358,7 +1363,7 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
 
   private hurtPlayer(atk: number, fromX: number): void {
     const p = this.player;
-    if (p.invuln > 0 || this.busy || p.rifting) return;
+    if (p.invuln > 0 || this.busy || p.rifting || this.outro) return;
     const d = session.data;
     d.hp -= damageTaken(atk, defense(d), d);
     p.hurt(fromX);
@@ -1370,7 +1375,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
         d.hp = 1;
         this.boss.dead = true;
         session.boss = null;
-        this.runEvent('kaiWins');
+        this.beginOutro();
+        void this.runEvent('kaiWins');
         return;
       }
       this.die();
@@ -1415,8 +1421,27 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
       }
       this.shake(600, 0.01);
       this.flash(0xffffff, 300);
-      void this.giveExp(e.exp).then(() => this.runEvent(`boss_${id}`));
+      this.beginOutro();
+      const gen = this.generation;
+      void this.giveExp(e.exp)
+        .then(() => this.runEvent(`boss_${id}`))
+        .then(() => {
+          if (gen === this.generation) this.outro = false;
+        });
     } else void this.giveExp(e.exp);
+  }
+
+  /**
+   * The boss is down and its scene (rewards, story flags, warps) is about to play. Dying now
+   * would skip that scene for good (the boss stays beaten), so shots still in the air vanish
+   * and Rio can't be hurt until it's over.
+   */
+  private beginOutro(): void {
+    this.outro = true;
+    for (const obj of [...this.projectiles.getChildren()]) {
+      const pr = obj as Projectile;
+      if (pr.active && pr.owner === 'enemy') this.popProjectile(pr);
+    }
   }
 
   private breakObject(b: { img: Phaser.GameObjects.Sprite; kind: 'pot' | 'grass' }): void {
@@ -1486,10 +1511,11 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     }
   }
 
-  runEvent(id: string): void {
+  /** Runs a story event; resolves when it has finished (never, if its room is left first). */
+  runEvent(id: string): Promise<void> {
     const ev = EVENTS[id];
-    if (!ev) return;
-    void this.script((api) => ev(api));
+    if (!ev) return Promise.resolve();
+    return this.script((api) => ev(api));
   }
 
   say(lines: Line[] | string, who?: string): Promise<void> {

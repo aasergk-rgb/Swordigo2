@@ -1,4 +1,5 @@
 // Story scripts for chapters 2-6.
+import { maxHp } from '../progress';
 import type { GameApi } from './types';
 
 type Ev = (g: GameApi) => Promise<void>;
@@ -351,7 +352,7 @@ async function EV_AFTER_DUEL(g: GameApi): Promise<void> {
   await g.say([{ text: 'リオの意識は、そこで途切れた――' }]);
   g.setFlag('ch5');
   g.save.room = 'villageNight';
-  g.save.hp = g.save.hpMax;
+  g.save.hp = maxHp(g.save);
   await g.fadeOut(1200);
   await g.warp('villageNight', 'F');
 }

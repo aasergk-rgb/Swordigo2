@@ -1,6 +1,7 @@
 // Story scripts. Each runs as an async function with the game API; the scene freezes player
 // input while a script runs. Scripts check flags themselves so they are safe to re-enter.
 import { CH2_EVENTS } from './events2';
+import { maxHp } from '../progress';
 import type { GameApi } from './types';
 
 export const EVENTS: Record<string, (g: GameApi) => Promise<void>> = {
@@ -71,7 +72,7 @@ export const EVENTS: Record<string, (g: GameApi) => Promise<void>> = {
     g.setFlag('prologueDone');
     g.setFlag('afterWolf');
     g.save.room = 'village';
-    g.save.hp = g.save.hpMax;
+    g.save.hp = maxHp(g.save);
     await g.fadeOut(1200);
     await g.warp('village', 'F');
   },
