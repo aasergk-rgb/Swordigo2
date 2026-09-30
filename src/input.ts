@@ -40,8 +40,9 @@ export class Controls {
   update(): void {
     for (const name of NAMES) {
       this.prev[name] = this.held[name];
-      this.held[name] = this.keys[name].some((k) => k.isDown) || !!session.touch[name];
+      this.held[name] = this.keys[name].some((k) => k.isDown) || !!session.touch[name] || !!session.touchPressed[name];
     }
+    session.touchPressed = {};
     if (this.justDown('switch')) this.switchDir = this.sKey.isDown || session.touch.switch ? 1 : -1;
   }
 

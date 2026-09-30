@@ -365,6 +365,7 @@ export class TouchOverlay {
         }
       }
     }
+    for (const k of Object.keys(t) as ButtonName[]) if (!session.touch[k]) session.touchPressed[k] = true;
     session.touch = t;
   }
 

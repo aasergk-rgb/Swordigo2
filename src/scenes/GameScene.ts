@@ -655,7 +655,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     }
     const surf = this.waterRect ? this.waterRect.y : null;
     this.lift = Math.max(0, this.lift - dt);
-    p.inWater = surf !== null && p.arcadeBody.center.y > surf && this.lift === 0;
+    p.waterSurface = surf;
+    p.inWater = surf !== null && p.arcadeBody.center.y > surf && this.lift === 0 && p.leapT === 0;
     if (this.waterLine) this.waterLine.setAlpha(0.5 + Math.sin(this.time.now / 300) * 0.2);
 
     p.wind.set(0, 0);

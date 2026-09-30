@@ -79,6 +79,8 @@ export class HUDScene extends Phaser.Scene {
   private typed = 0;
 
   private panel!: Phaser.GameObjects.Container;
+  /** Tap area over the selected-spell box: opens the magic tab. */
+  private spellTap!: Phaser.GameObjects.Zone;
   private panelObjs: Phaser.GameObjects.GameObject[] = [];
   private cursor = 0;
   private scrollTop = 0;
@@ -131,6 +133,13 @@ export class HUDScene extends Phaser.Scene {
     on(EV.shop, (id: string, done?: Done) => this.openShop(id, done));
     on(EV.warp, (done: Done<string | null>) => this.openWarp(done));
     on(EV.menu, () => this.openMenu(0));
+    this.spellTap = this.add
+      .zone(0, 0, 130, 54)
+      .setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        if (!this.current && !session.uiBlocking) this.openMenu(2);
+      });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       session.touch = {};
       session.uiBlocking = false;
@@ -492,7 +501,8 @@ export class HUDScene extends Phaser.Scene {
 
   private openMenu(tab: number): void {
     const d = session.data;
-    const tabs = ['装備', '持ち物', 'ステータス', '記録', '設定'];
+    const tabs = ['装備', '持ち物', '魔法', '能力', '記録', '設定'];
+    const T = { gear: 0, items: 1, magic: 2, stats: 3, record: 4, settings: 5 };
     const slotOrder = ['sword', 'armor', 'charm'];
     const gear = () => [...d.owned].sort((a, b) => slotOrder.indexOf(EQUIPMENT[a].slot) - slotOrder.indexOf(EQUIPMENT[b].slot));
     const task: Extract<UiTask, { type: 'list' }> = {
@@ -523,7 +533,6 @@ export class HUDScene extends Phaser.Scene {
               { text: `剣の欠片 ${d.fragments}/4`, icon: IC.fragment },
               { text: `託された灯 ${d.lights.length}/12`, icon: IC.light },
             ];
-            for (const s of SPELL_ORDER) if (d.abilities[s]) rows.push({ text: `${SPELLS[s].name}（MP ${SPELLS[s].cost}）${d.spell === s ? ' ← 選択中' : ''}`, icon: IC[s], desc: SPELLS[s].desc } as ListRow);
             if (d.abilities.doubleJump) rows.push({ text: '跳躍のブーツ（二段ジャンプ）', icon: IC.armor });
             if (d.abilities.charge) rows.push({ text: fmt('溜め斬り（{attack} 長押し）'), icon: IC.sword });
             const questNames: Record<string, string> = { shadowIron: '影の鉄', musicBox: 'オルゴール', scale: '竜の鱗' };
@@ -532,7 +541,14 @@ export class HUDScene extends Phaser.Scene {
             if (tabs2 && !d.flags.gave_tablets) rows.push({ text: `石版 ×${tabs2}`, icon: IC.key });
             return rows;
           }
-          case 2: {
+          case T.magic:
+            // Every spell, so the player can see there are more to find.
+            return SPELL_ORDER.map((s) =>
+              d.abilities[s]
+                ? ({ text: `${SPELLS[s].name}（MP ${SPELLS[s].cost}）`, sub: d.spell === s ? '使用中' : '', icon: IC[s], desc: SPELLS[s].desc } as ListRow)
+                : ({ text: '？？？', sub: 'まだ覚えていない', dim: true, desc: '旅の先で覚えられる魔法。' } as ListRow),
+            );
+          case T.stats: {
             const t = Math.floor(d.playTime);
             return [
               { text: `レベル ${d.level}`, sub: `次まで ${expToNext(d.level) - d.exp}` },
@@ -546,7 +562,7 @@ export class HUDScene extends Phaser.Scene {
               { text: `やさしいモード：${d.easy ? 'オン' : 'オフ'}` },
             ];
           }
-          case 4:
+          case T.settings:
             return [
               { text: `移動ボタン：${settings.pad === 'bar' ? '◀ ▶ ボタン' : '十字キー'}` },
               { text: `ボタンの大きさ：${labelOf(SIZES, settings.size)}` },
@@ -575,8 +591,18 @@ export class HUDScene extends Phaser.Scene {
           const id = gear()[this.cursor];
           return id ? `${EQUIPMENT[id].desc}\n${byMode('Z で装備', '「装備する」で装備')}（お守りは2つまで）` : '';
         }
-        if (task.tab === 3) return `ファイル${session.slot + 1}　　現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
-        if (task.tab === 4) {
+        if (task.tab === T.magic) {
+          const s = SPELL_ORDER[this.cursor];
+          const desc = s && d.abilities[s] ? SPELLS[s].desc : '旅の先で覚えられる魔法。';
+          const owned = SPELL_ORDER.filter((x) => d.abilities[x]).length;
+          const how = byMode(
+            '{magic} で使う　A / S で切り替え',
+            owned > 1 ? '「魔法」ボタンで使う　「切替」ボタンで切り替え' : '「魔法」ボタンで使う（2つ以上覚えると「切替」ボタンが出る）',
+          );
+          return `${desc}\n${fmt(how)}`;
+        }
+        if (task.tab === T.record) return `ファイル${session.slot + 1}　　現在地：${session.roomName}　　灯台 ${d.beacons.length} か所`;
+        if (task.tab === T.settings) {
           return [
             'スマホの移動ボタンを ◀ ▶ ボタンと十字キーで切り替えます。十字キーは上下・斜めも押せます',
             'スマホのボタンの大きさ（小・中・大・特大）',
@@ -596,26 +622,25 @@ export class HUDScene extends Phaser.Scene {
           if (e.slot === 'charm') return { label: d.equip.charms.includes(id) ? '外す' : '装備する' };
           return d.equip.sword === id || d.equip.armor === id ? { label: '装備中', off: true } : { label: '装備する' };
         }
-        if (task.tab === 1) {
-          const s = SPELL_ORDER.filter((x) => d.abilities[x])[i - 5];
-          return s ? (d.spell === s ? { label: 'セット中', off: true } : { label: 'この魔法をセット' }) : null;
+        if (task.tab === T.magic) {
+          const s = SPELL_ORDER[i];
+          return s && d.abilities[s] ? (d.spell === s ? { label: '使用中', off: true } : { label: 'この魔法を使う' }) : null;
         }
-        if (task.tab === 2) return i === 8 ? { label: d.easy ? 'オフにする' : 'オンにする' } : null;
-        if (task.tab === 4) return { label: ['切り替える', '変える', '変える', '編集する', '元に戻す', 'タイトルへ'][i] };
+        if (task.tab === T.stats) return i === 8 ? { label: d.easy ? 'オフにする' : 'オンにする' } : null;
+        if (task.tab === T.settings) return { label: ['切り替える', '変える', '変える', '編集する', '元に戻す', 'タイトルへ'][i] };
         return null;
       },
       onPick: (i) => {
         if (task.tab === 0) {
           const id = gear()[i];
           if (!equip(d, id)) this.toast('お守りは2つまでしか付けられない');
-        } else if (task.tab === 1) {
-          const owned = SPELL_ORDER.filter((s) => d.abilities[s]);
-          const s = owned[i - 5];
-          if (s) d.spell = s;
-        } else if (task.tab === 2 && i === 8) {
+        } else if (task.tab === T.magic) {
+          const s = SPELL_ORDER[i];
+          if (s && d.abilities[s]) d.spell = s;
+        } else if (task.tab === T.stats && i === 8) {
           d.easy = !d.easy;
           saveGame();
-        } else if (task.tab === 4) {
+        } else if (task.tab === T.settings) {
           if (i === 0) settings.pad = settings.pad === 'bar' ? 'dpad' : 'bar';
           else if (i === 1) settings.size = cycle(SIZES, settings.size).v;
           else if (i === 2) settings.opacity = cycle(OPACITIES, settings.opacity).v;
@@ -801,8 +826,13 @@ export class HUDScene extends Phaser.Scene {
       g.fillStyle(0x10102a, 0.8).fillRoundedRect(R - 58, py + 66, 44, 44, 8);
       g.lineStyle(2, 0xcfd8ff, 0.7).strokeRoundedRect(R - 58, py + 66, 44, 44, 8);
       icon(R - 36, py + 88, IC[d.spell], 2);
+      this.spellTap.setPosition(R - 8, py + 62).setActive(true);
+      if (this.spellTap.input) this.spellTap.input.enabled = true;
       this.texts.spell.setPosition(R - 64, py + 76).setText(`${SPELLS[d.spell].name}\nMP ${SPELLS[d.spell].cost}`).setVisible(true);
-    } else this.texts.spell.setVisible(false);
+    } else {
+      this.texts.spell.setVisible(false);
+      if (this.spellTap.input) this.spellTap.input.enabled = false;
+    }
 
     // Boss bar.
     const boss = session.boss;

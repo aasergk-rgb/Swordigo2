@@ -15,6 +15,8 @@ export const session = {
   data: newGame() as SaveData,
   /** Buttons held on the touch overlay (written by the HUD). */
   touch: {} as Partial<Record<ButtonName, boolean>>,
+  /** Touch buttons pressed since the controls last looked: a tap shorter than a frame still counts. */
+  touchPressed: {} as Partial<Record<ButtonName, boolean>>,
   boss: null as BossBar | null,
   /** True while a dialog or menu has the focus; the world is frozen. */
   uiBlocking: false,

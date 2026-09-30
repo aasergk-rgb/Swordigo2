@@ -25,6 +25,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private coyote = 0;
   private jumpBuffer = 0;
   private airJumps = 0;
+  /** Water surface y (set by the scene), or null in rooms without water. */
+  waterSurface: number | null = null;
+  /** Seconds of a leap out of the water, during which water doesn't slow the player. */
+  leapT = 0;
   private jumpHeld = false;
   private dashing = false;
   private lastTapDir = 0;
@@ -184,11 +188,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    this.leapT = Math.max(0, this.leapT - dt);
     if (this.inWater) {
-      // Swim strokes: every press pushes up.
       if (pressed) {
-        body.setVelocityY(-190);
         this.jumpHeld = false;
+        const surf = this.waterSurface;
+        if (surf !== null && body.top < surf + 18) {
+          // Head at the surface: a full jump out of the water, onto the bank.
+          body.setMaxVelocity(1000, PLAYER.maxFall); // lift this frame's water speed limit
+          body.setVelocityY(-PLAYER.jumpVelocity);
+          this.leapT = 0.4;
+          this.emitPuff();
+        } else body.setVelocityY(-190); // Swim stroke: every press pushes up.
       }
       return;
     }
@@ -202,10 +213,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.jumpBuffer = 0;
       this.jumpHeld = true;
     } else if (pressed && this.coyote <= 0 && this.airJumps > 0) {
-      body.setVelocityY(-PLAYER.doubleJumpVelocity);
+      // Never slower than the rise it interrupts, and not cut short by a quick tap
+      // (touch taps are brief): the second jump always gives its full height.
+      const rising = Math.max(0, -body.velocity.y);
+      body.setVelocityY(-Math.min(PLAYER.jumpVelocity * 1.05, PLAYER.doubleJumpVelocity + rising * 0.3));
       this.airJumps -= 1;
       this.jumpBuffer = 0;
-      this.jumpHeld = true;
+      this.jumpHeld = false;
       this.emitPuff();
     }
 
