@@ -120,6 +120,7 @@ export const EV = {
   menu: 'ui:menu', // (done)
   area: 'ui:area', // (name) area title card
   edit: 'ui:edit', // (done) touch-control and HUD layout editor
+  toTitle: 'game:title', // (save: boolean) leave the adventure for the title screen
 } as const;
 
 export type DialogHandler = (lines: Line[], onDone?: () => void) => void;

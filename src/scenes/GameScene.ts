@@ -201,6 +201,9 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     this.game.events.emit(EV.area, this.room.name);
 
     this.input.keyboard!.on('keydown-F1', () => this.debugUnlock());
+    const toTitle = (save: boolean) => this.toTitle(save);
+    this.game.events.on(EV.toTitle, toTitle);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off(EV.toTitle, toTitle));
 
     if (this.room.onEnter) this.time.delayedCall(250, () => this.runEvent(this.room.onEnter!));
   }
@@ -1657,6 +1660,19 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
 
   refreshRoom(): void {
     this.travel(this.roomId, 'F');
+  }
+
+  /** Leaves for the title screen (from the menu), saving first if asked. */
+  private toTitle(save: boolean): void {
+    if (this.busy) return;
+    if (save) saveGame();
+    this.busy = true;
+    session.boss = null;
+    this.cameras.main.fadeOut(400);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.stop('HUD');
+      this.scene.start('Title');
+    });
   }
 
   ending(): void {

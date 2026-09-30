@@ -304,13 +304,16 @@ export class HUDScene extends Phaser.Scene {
     const t = this.current as Extract<UiTask, { type: 'choice' }>;
     const W = this.scale.width;
     this.panel.setVisible(true);
-    const h = 70 + t.options.length * 40;
-    const y = 150;
-    const fw = Math.min(520, W - 40);
+    const fw = Math.min(560, W - 40);
+    // The panel grows with the question (it may run to several lines).
+    const q = this.add.text(W / 2, 0, t.question, { fontFamily: FONT, fontSize: '22px', color: '#ffd98a', align: 'center', lineSpacing: 6, wordWrap: { width: fw - 40, useAdvancedWrap: true } }).setOrigin(0.5, 0);
+    const top = q.height + 34;
+    const h = top + t.options.length * 40 + 10;
+    const y = Math.max(16, Math.min(150, (this.scale.height - h) / 2));
     this.frame(W / 2 - fw / 2, y, fw, h);
-    this.add2(this.add.text(W / 2, y + 20, t.question, { fontFamily: FONT, fontSize: '22px', color: '#ffd98a', align: 'center' }).setOrigin(0.5, 0));
+    this.add2(q.setY(y + 20));
     t.options.forEach((o, i) => {
-      const oy = y + 64 + i * 40;
+      const oy = y + top + i * 40;
       const on = i === this.cursor;
       const row = this.add2(this.add.rectangle(W / 2, oy + 14, fw - 40, 36, on ? 0x2a2a5a : 0x000000, on ? 1 : 0.001));
       this.add2(this.add.text(W / 2, oy, (on ? '▶ ' : '   ') + o, { fontFamily: FONT, fontSize: '22px', color: on ? '#ffffff' : '#9aa3c0' }).setOrigin(0.5, 0));
@@ -550,6 +553,7 @@ export class HUDScene extends Phaser.Scene {
               { text: `ボタンの濃さ：${labelOf(OPACITIES, settings.opacity)}` },
               { text: 'ボタンとHP表示の配置を変える' },
               { text: '配置を元に戻す' },
+              { text: 'タイトルに戻る' },
             ];
           default: {
             const rows: ListRow[] = [];
@@ -579,6 +583,7 @@ export class HUDScene extends Phaser.Scene {
             'スマホのボタンの濃さ（うすい・ふつう・こい）',
             '編集画面で、ボタンやHP表示をドラッグで動かしたり、大きさを変えたりできます',
             'ボタンとHP表示の位置・大きさを最初の状態に戻します',
+            `タイトル画面に戻ります（ファイル${session.slot + 1}）`,
           ][this.cursor] ?? '';
         }
         return '';
@@ -596,7 +601,7 @@ export class HUDScene extends Phaser.Scene {
           return s ? (d.spell === s ? { label: 'セット中', off: true } : { label: 'この魔法をセット' }) : null;
         }
         if (task.tab === 2) return i === 8 ? { label: d.easy ? 'オフにする' : 'オンにする' } : null;
-        if (task.tab === 4) return { label: ['切り替える', '変える', '変える', '編集する', '元に戻す'][i] };
+        if (task.tab === 4) return { label: ['切り替える', '変える', '変える', '編集する', '元に戻す', 'タイトルへ'][i] };
         return null;
       },
       onPick: (i) => {
@@ -616,6 +621,16 @@ export class HUDScene extends Phaser.Scene {
           else if (i === 2) settings.opacity = cycle(OPACITIES, settings.opacity).v;
           else if (i === 3) {
             this.queue.unshift({ type: 'edit' });
+            return true;
+          } else if (i === 5) {
+            this.queue.unshift({
+              type: 'choice',
+              question: 'タイトルに戻りますか？\n記録すると、手に入れた物や経験はそのままで、\n次は最後に触れた灯の泉から始まります。',
+              options: ['記録してタイトルへ', '記録せずにタイトルへ', 'やめる'],
+              done: (c) => {
+                if (c === 0 || c === 1) this.game.events.emit(EV.toTitle, c === 0);
+              },
+            });
             return true;
           } else if (i === 4) {
             resetLayout();
