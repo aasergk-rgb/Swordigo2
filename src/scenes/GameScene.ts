@@ -929,7 +929,8 @@ export class GameScene extends Phaser.Scene implements World, GameApi {
     const res = e.hurt(hit);
     if (res === 'blocked') return res;
     this.burst(e.x, e.y - 4, 0xffffff, 5);
-    if (res === 'killed') this.onEnemyKilled(e);
+    // Parts that pass damage to their body (Nox's hands): a killing blow defeats the body.
+    if (res === 'killed') this.onEnemyKilled((e as { owner?: Enemy }).owner ?? e);
     return res;
   }
 

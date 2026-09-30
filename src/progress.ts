@@ -268,6 +268,9 @@ export function deserialize(raw: string | null): SaveData | null {
     out.keys = { ...((d.keys as Record<string, number>) ?? {}) };
     out.flags = { ...((d.flags as Record<string, boolean>) ?? {}) };
     out.vars = { ...((d.vars as Record<string, number>) ?? {}) };
+    // Each shard comes from one boss: repair a count that fell behind (an interrupted scene).
+    const shardBosses = ['boss_golem', 'boss_tempest', 'boss_levia', 'boss_ignia'].filter((f) => out.flags[f]).length;
+    out.fragments = Math.min(4, Math.max(typeof out.fragments === 'number' ? out.fragments : 0, shardBosses));
     return out;
   } catch {
     return null;

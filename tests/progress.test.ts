@@ -130,3 +130,16 @@ describe('equipment and items', () => {
     expect(damageTaken(5, 0, s)).toBe(3);
   });
 });
+
+describe('shard count repair', () => {
+  it('raises the shard count to the shard bosses beaten', async () => {
+    const { deserialize, newGame, serialize } = await import('../src/progress');
+    const s = newGame();
+    Object.assign(s.flags, { boss_golem: true, boss_tempest: true, boss_levia: true, boss_ignia: true });
+    s.fragments = 3;
+    expect(deserialize(serialize(s))?.fragments).toBe(4);
+    s.flags = { boss_golem: true };
+    s.fragments = 1;
+    expect(deserialize(serialize(s))?.fragments).toBe(1);
+  });
+});
